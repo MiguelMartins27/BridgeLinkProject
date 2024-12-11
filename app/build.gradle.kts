@@ -50,7 +50,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -67,6 +66,11 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
+
     //Navigation
     implementation("androidx.navigation:navigation-compose:2.8.4")
+
+    implementation("com.mapbox.maps:android:11.8.1")
+    implementation("com.mapbox.extension:maps-compose:11.8.1")
+
 }

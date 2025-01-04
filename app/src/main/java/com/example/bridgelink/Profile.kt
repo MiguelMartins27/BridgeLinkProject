@@ -1,8 +1,8 @@
 package com.example.bridgelink
 
-import android.service.autofill.UserData
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +23,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.bridgelink.navigation.NavigationDots
 
 
 @Composable
@@ -85,72 +86,82 @@ data class UserDataSet(
 
 @Composable
 fun ProfileInfo(userData: UserDataSet, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
+    Box (
+        modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(colorResource(id = R.color.navy_blue))
     ) {
-        Text( // Name
-            text = userData.name,
-            color = Color.White,
-            fontSize = 36.sp
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Column (
-            modifier = Modifier
+        Column(
+            modifier = modifier
+                .fillMaxSize()
                 .padding(16.dp),
-            horizontalAlignment = Alignment.Start
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Blood Type: ${userData.bloodType}",
+            Text( // Name
+                text = userData.name,
                 color = Color.White,
-                fontSize = 20.sp
+                fontSize = 36.sp
             )
+
             Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Height: ${userData.height}",
-                color = Color.White,
-                fontSize = 20.sp
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Weight: ${userData.weight}",
-                color = Color.White,
-                fontSize = 20.sp
-            )
+
+            Column (
+                modifier = Modifier
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = "Blood Type: ${userData.bloodType}",
+                    color = Color.White,
+                    fontSize = 20.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Height: ${userData.height}",
+                    color = Color.White,
+                    fontSize = 20.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Weight: ${userData.weight}",
+                    color = Color.White,
+                    fontSize = 20.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(36.dp))
+
+            Column (
+                modifier = Modifier
+                    .clip(shape = RoundedCornerShape(10.dp))
+                    .background(Color(0x994682B4))
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = userData.deliveries,
+                    color = Color.White,
+                    fontSize = 20.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Total distance walked: ${userData.distanceWalked}",
+                    color = Color.White,
+                    fontSize = 20.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Total Timefall exposure: ${userData.timefallExposure}",
+                    color = Color.White,
+                    fontSize = 20.sp
+                )
+            }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Column (
+        NavigationDots(
+            currentPage = 3,
             modifier = Modifier
-                .clip(shape = RoundedCornerShape(20.dp))
-                .background(Color(0x994682B4))
-                .padding(10.dp),
-            horizontalAlignment = Alignment.Start
-        ) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = userData.deliveries,
-                color = Color.White,
-                fontSize = 20.sp
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Total distance walked: ${userData.distanceWalked}",
-                color = Color.White,
-                fontSize = 20.sp
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Timefall exposure: ${userData.timefallExposure}",
-                color = Color.White,
-                fontSize = 20.sp
-            )
-        }
+                .align(Alignment.BottomCenter)
+        )
     }
 }
 

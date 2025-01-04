@@ -1,6 +1,5 @@
 package com.example.bridgelink
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -97,14 +96,18 @@ fun InteractionUtils(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Contacts,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier
-                    .size(36.dp)
-                    .padding(end = 4.dp)
-            )
+            IconButton(
+                onClick = { openContacts() }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Contacts,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .padding(end = 4.dp)
+                )
+            }
         }
 
         // Add a Reaction
@@ -115,7 +118,7 @@ fun InteractionUtils(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.Center
         ) {
             IconButton(
-                onClick = {AddReaction()}
+                onClick = {addReaction()}
             ) {
                 Icon(
                     imageVector = Icons.Default.AddReaction,
@@ -136,7 +139,7 @@ fun InteractionUtils(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.Center
         ) {
             IconButton(
-                onClick = {RequestHelp()}
+                onClick = {requestHelp()}
             ) {
                 Icon(
                     imageVector = Icons.Default.Bloodtype,
@@ -155,7 +158,7 @@ fun InteractionUtils(modifier: Modifier = Modifier) {
 // TODO Lógica de adicionar icones
 // Isso incluir adicionar as layers ao mapa; Persistir os ícones na db;
 // Ter layering para que não se vejam todos os icones at all times
-fun AddReaction() {
+fun addReaction() {
     print("Add reaction")
 }
 
@@ -163,12 +166,12 @@ fun AddReaction() {
 // Isso inclui enviar o pedido para porters nas proximidades; Criar um pop-up para estes;
 // Adicionar um icone ao mapa no local do porter que precisa de ajuda;
 // Apagar este icone e eliminar o pedido quando alguem se aproxima dentro de 50m (por exemplo)
-fun RequestHelp() {
+fun requestHelp() {
     print("Requesting for help")
 }
 
 // TODO Lógica de contactos
 // Criar uma página que pode aparecer por cima desta com os porters e a distância a que estão
-fun OpenContacts() {
+fun openContacts() {
     print("List of contacts")
 }

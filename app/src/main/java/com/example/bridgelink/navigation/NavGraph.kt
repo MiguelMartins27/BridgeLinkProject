@@ -37,7 +37,7 @@ import com.example.bridgelink.TimeFallForecast
 fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
     NavHost(
         navController = navController,
-        startDestination = Screens.Profile.route,
+        startDestination = Screens.OdradekScanner.route,
         modifier = modifier
     ) {
         composable(route = Screens.Menu.route) {

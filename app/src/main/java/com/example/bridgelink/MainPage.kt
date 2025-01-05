@@ -175,3 +175,116 @@ fun requestHelp() {
 fun openContacts() {
     print("List of contacts")
 }
+
+//@Composable
+//fun ShipmentOptimizationMap (navController: NavController, modifier: Modifier = Modifier) {
+//    val mapViewportState = rememberMapViewportState()
+//    Column(
+//        modifier = Modifier
+//            .fillMaxSize()
+//            .background(colorResource(id = R.color.navy_blue))
+//    ) {
+//        Box(
+//            modifier = Modifier
+//                .weight(1f)
+//                .fillMaxWidth()
+//        ) {
+//            MapboxMap(
+//                Modifier.fillMaxSize(),
+//                mapViewportState = mapViewportState,
+//                style = { MapStyle(style = "mapbox://styles/miguelmartins27/cm4k61vj1007501si3wux1brp") }
+//            ) {
+//                MapEffect(Unit) { mapView ->
+//                    mapView.location.updateSettings {
+//                        locationPuck = createDefault2DPuck(withBearing = true)
+//                        enabled = true
+//                        puckBearing = PuckBearing.COURSE
+//                        puckBearingEnabled = true
+//                    }
+//                    mapViewportState.transitionToFollowPuckState()
+//                }
+//            }
+//        }
+//        NavigationUtils()
+//    }
+//}
+//
+//@Composable
+//fun NavigationUtils() {
+//    Row(
+//        modifier = Modifier
+//            .fillMaxWidth()
+//            .height(64.dp)
+//            .background(Color(0xFF4682B4 )),
+//        verticalAlignment = Alignment.CenterVertically
+//    ) {
+//        // Cargo Status
+//        Row(
+//            modifier = Modifier
+//                .weight(1f),
+//            verticalAlignment = Alignment.CenterVertically,
+//            horizontalArrangement = Arrangement.Center
+//        ) {
+//            Icon(
+//                painter = painterResource(id = R.drawable.box_emoji),
+//                contentDescription = null,
+//                tint = Color.Unspecified, // Para a imagem não ficar a preto
+//                modifier = Modifier
+//                    .size(42.dp)
+//                    .padding(end = 4.dp)
+//            )
+//            Text(
+//                text = "89%",
+//                color = Color.White,
+//                fontSize = 24.sp
+//            )
+//        }
+//
+//        // ETA
+//        Column (
+//            modifier = Modifier
+//                .weight(1f),
+//            horizontalAlignment = Alignment.CenterHorizontally
+//        ) {
+//            Row(
+//                modifier = Modifier
+//                    .padding(horizontal = 8.dp),
+//                verticalAlignment = Alignment.CenterVertically,
+//                horizontalArrangement = Arrangement.Center
+//            ) {
+//                Text(
+//                    text = "1h05min",
+//                    color = Color.White,
+//                    fontSize = 24.sp
+//                )
+//            }
+//
+//            Row(
+//                modifier = Modifier
+//                    .padding(horizontal = 8.dp),
+//                verticalAlignment = Alignment.CenterVertically,
+//                horizontalArrangement = Arrangement.Center
+//            ) {
+//                Text(
+//                    text = "ETA",
+//                    color = Color.LightGray,
+//                    fontSize = 12.sp
+//                )
+//            }
+//        }
+//
+//        // Distance left
+//        Row(
+//            modifier = Modifier
+//                .weight(1f),
+//            verticalAlignment = Alignment.CenterVertically,
+//            horizontalArrangement = Arrangement.Center
+//        ) {
+//            Text(
+//                text = "5.75km",
+//                color = Color.White,
+//                fontSize = 24.sp
+//            )
+//        }
+//    }
+//}

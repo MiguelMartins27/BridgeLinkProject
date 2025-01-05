@@ -28,7 +28,6 @@ import com.example.bridgelink.Menu
 import com.example.bridgelink.OdradekScanner
 import com.example.bridgelink.Profile
 import com.example.bridgelink.R
-import com.example.bridgelink.ShipmentOptimizationMap
 import com.example.bridgelink.StrandConnectionsMap
 import com.example.bridgelink.TimeFallForecast
 
@@ -37,10 +36,10 @@ import com.example.bridgelink.TimeFallForecast
 fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
     NavHost(
         navController = navController,
-        startDestination = Screens.ShipmentOptimizationMap.route,
+        startDestination = Screens.MainPage.route,
         modifier = modifier
     ) {
-        composable(route = Screens.Menu.route) {
+        composable(route = Screens.LoginInicial.route) {
             Menu(navController = navController)
         }
         composable (route = Screens.CargoManagement.route) {
@@ -55,10 +54,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         composable (route = Screens.Profile.route) {
             Profile(navController = navController)
         }
-        composable (route = Screens.ShipmentOptimizationMap.route) {
-            ShipmentOptimizationMap(navController = navController)
-        }
-        composable (route = Screens.StrandConnectionsMap.route) {
+        composable (route = Screens.MainPage.route) {
             StrandConnectionsMap(navController = navController)
         }
         composable (route = Screens.TimeFallForecast.route) {

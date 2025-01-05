@@ -42,7 +42,6 @@ fun ShipmentOptimizationMap (navController: NavController, modifier: Modifier = 
             .fillMaxSize()
             .background(colorResource(id = R.color.navy_blue))
     ) {
-        NavigationUtils()
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -64,7 +63,7 @@ fun ShipmentOptimizationMap (navController: NavController, modifier: Modifier = 
                 }
             }
         }
-        NavigationDots(currentPage = 3)
+        NavigationUtils()
     }
 }
 
@@ -74,7 +73,7 @@ fun NavigationUtils() {
         modifier = Modifier
             .fillMaxWidth()
             .height(64.dp)
-            .background(colorResource(id = R.color.navy_blue)),
+            .background(Color(0xFF4682B4 )),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Cargo Status

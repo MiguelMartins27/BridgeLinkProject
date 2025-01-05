@@ -27,6 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.bridgelink.navigation.NavigationDots
+import com.example.bridgelink.navigation.Screens
 import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
 import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
@@ -37,7 +38,7 @@ import com.mapbox.maps.plugin.locationcomponent.location
 
 
 @Composable
-fun StrandConnectionsMap(navController: NavController, modifier: Modifier = Modifier) {
+fun MainPage(navController: NavController, modifier: Modifier = Modifier) {
     val mapViewportState = rememberMapViewportState()
     Box(
         modifier = Modifier

@@ -24,11 +24,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.bridgelink.CargoManagement
 import com.example.bridgelink.ChiralNetworkMap
+import com.example.bridgelink.MainPage
 import com.example.bridgelink.Menu
 import com.example.bridgelink.OdradekScanner
 import com.example.bridgelink.Profile
 import com.example.bridgelink.R
-import com.example.bridgelink.StrandConnectionsMap
 import com.example.bridgelink.TimeFallForecast
 
 
@@ -55,7 +55,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             Profile(navController = navController)
         }
         composable (route = Screens.MainPage.route) {
-            StrandConnectionsMap(navController = navController)
+            MainPage(navController = navController)
         }
         composable (route = Screens.TimeFallForecast.route) {
             TimeFallForecast(navController = navController)

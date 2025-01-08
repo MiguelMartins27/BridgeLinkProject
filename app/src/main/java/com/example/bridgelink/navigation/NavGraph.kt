@@ -29,6 +29,7 @@ import com.example.bridgelink.Menu
 import com.example.bridgelink.OdradekScanner
 import com.example.bridgelink.Profile
 import com.example.bridgelink.R
+import com.example.bridgelink.SecondMainPage
 import com.example.bridgelink.TimeFallForecast
 
 
@@ -59,6 +60,9 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
         }
         composable (route = Screens.TimeFallForecast.route) {
             TimeFallForecast(navController = navController)
+        }
+        composable (route = Screens.SecondMainPage.route) {
+            SecondMainPage(navController = navController)
         }
     }
 }

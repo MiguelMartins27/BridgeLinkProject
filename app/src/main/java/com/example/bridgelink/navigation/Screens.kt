@@ -8,4 +8,5 @@ sealed class Screens (val route: String) {
     object Profile : Screens("profile_screen")
     object MainPage : Screens("main_page")
     object TimeFallForecast : Screens("timefall_screen")
+    object SecondMainPage : Screens("second_main_page")
 }

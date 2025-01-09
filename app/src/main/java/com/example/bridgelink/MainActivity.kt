@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.example.bridgelink.navigation.NavGraph
 import com.example.bridgelink.ui.theme.BridgeLinkTheme
+import com.google.firebase.FirebaseApp
 import com.mapbox.android.core.permissions.PermissionsManager
 import com.mapbox.android.core.permissions.PermissionsListener
 
@@ -50,6 +51,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+
+        // Initialize Firebase
+        FirebaseApp.initializeApp(this)
         // Initialize PermissionsManager with the current activity context
         permissionsManager = PermissionsManager(permissionsListener)
 

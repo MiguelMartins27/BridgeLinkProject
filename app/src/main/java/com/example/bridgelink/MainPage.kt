@@ -1,6 +1,9 @@
 package com.example.bridgelink
 
 
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,32 +13,49 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAlert
 import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.Bloodtype
-import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.core.app.ActivityCompat
 import androidx.navigation.NavController
 import com.example.bridgelink.navigation.Screens
+import com.example.bridgelink.post.office.PostOfficeRepository
+import com.example.bridgelink.signals.Signal
+import com.example.bridgelink.signals.SignalRepository
+import com.google.gson.JsonObject
+import com.mapbox.geojson.Point
 import com.mapbox.maps.ImageHolder
 import com.mapbox.maps.MapView
 import com.mapbox.maps.extension.compose.MapEffect
@@ -44,10 +64,10 @@ import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportS
 import com.mapbox.maps.extension.compose.style.MapStyle
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.PuckBearing
+import com.mapbox.maps.plugin.annotation.annotations
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
+import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
 import com.mapbox.maps.plugin.locationcomponent.location
-import com.mapbox.maps.extension.style.layers.generated.fillLayer
-import com.mapbox.maps.extension.style.sources.generated.geoJsonSource
-import com.mapbox.geojson.GeoJson
 
 
 @Composable
@@ -75,13 +95,14 @@ fun MainPage(navController: NavController, modifier: Modifier = Modifier) {
                     puckBearing = PuckBearing.COURSE
                     puckBearingEnabled = true
                 }
+
                 mapViewportState.transitionToFollowPuckState()
 
                 // Load and manage layers
                 addPostOfficesLayer(mapView)
                 addTimefallLayer(mapView)
                 addChiralNetworkLayer(mapView)
-                addSignalsLayer(mapView)
+                addSignalsLayer(mapView, SignalRepository().signalIcons)
             }
         }
 
@@ -112,8 +133,36 @@ fun MainPage(navController: NavController, modifier: Modifier = Modifier) {
 }
 
 fun addPostOfficesLayer(mapView: MapView) {
-    // Add logic to display post offices on the map.
-    // This layer should be always visible.
+    val postOfficeRepository = PostOfficeRepository()
+    postOfficeRepository.fetchPostOffices { postOffices ->
+        mapView.getMapboxMap().getStyle { style ->
+            // Create an instance of the Annotation API and get the PointAnnotationManager
+            val annotationApi = mapView.annotations
+            val pointAnnotationManager = annotationApi.createPointAnnotationManager()
+
+            // Create a bitmap for the marker icon
+            val originalBitmap = BitmapFactory.decodeResource(mapView.context.resources, R.drawable.postbox)
+            val width = originalBitmap.width / 8 // Reduce width by half
+            val height = originalBitmap.height / 8 // Reduce height by half
+            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, width, height, false)
+
+            postOffices.forEach { postOffice ->
+                // Set options for the resulting point annotation
+                val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
+                    // Define a geographic coordinate
+                    .withPoint(Point.fromLngLat(postOffice.longitude, postOffice.latitude))
+                    // Specify the bitmap you assigned to the point annotation
+                    .withIconImage(scaledBitmap)
+                    // Add the post office name as data to the annotation
+                    .withData(JsonObject().apply {
+                        addProperty("name", postOffice.name)
+                    })
+
+                // Add the resulting pointAnnotation to the map
+                pointAnnotationManager.create(pointAnnotationOptions)
+            }
+        }
+    }
 }
 
 fun addTimefallLayer(mapView: MapView) {
@@ -121,29 +170,52 @@ fun addTimefallLayer(mapView: MapView) {
     // Change region colors based on timefall intensity.
 }
 
-
 fun addChiralNetworkLayer(mapView: MapView) {
     // Add logic to show dynamic chiral network regions.
     // Change region colors based on delivery activity.
 }
 
-fun addSignalsLayer(mapView: MapView) {
-    // Add logic to allow users to place and view signals.
-    // Make this layer interactive.
+fun addSignalsLayer(mapView: MapView, signals: List<Int>) {
+    val signalRepository = SignalRepository()
+    signalRepository.fetchSignals { signals ->
+        mapView.getMapboxMap().getStyle { style ->
+            val annotationApi = mapView.annotations
+            val pointAnnotationManager = annotationApi.createPointAnnotationManager()
+
+            signals.forEach { signal ->
+                val originalBitmap = BitmapFactory.decodeResource(mapView.context.resources, signal.iconResourceId.toInt())
+                val width = originalBitmap.width / 8 // Reduce width by half
+                val height = originalBitmap.height / 8 // Reduce height by half
+                val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, width, height, false)
+                val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
+                    .withPoint(Point.fromLngLat(signal.longitude, signal.latitude))
+                    .withIconImage(scaledBitmap)
+                    .withData(JsonObject().apply {
+                        addProperty("description", signal.description)
+                    })
+
+                pointAnnotationManager.create(pointAnnotationOptions)
+            }
+        }
+    }
 }
 
 @Preview
 @Composable
 fun InteractionUtils(modifier: Modifier = Modifier) {
+    var showAddSignalDialog by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .width(56.dp) // Reduced width
-            .clip(RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 0.dp,
-                bottomEnd = 0.dp,
-                bottomStart = 16.dp
-            )) // Slightly smaller corner radius
+            .clip(
+                RoundedCornerShape(
+                    topStart = 16.dp,
+                    topEnd = 0.dp,
+                    bottomEnd = 0.dp,
+                    bottomStart = 16.dp
+                )
+            ) // Slightly smaller corner radius
             .background(Color(0xE64682B4))
             .height(200.dp) // Reduced height
     ) {
@@ -156,11 +228,11 @@ fun InteractionUtils(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.Center
         ) {
             IconButton(
-                onClick = { openContacts() }
+                onClick = { showAddSignalDialog = true }
             ) {
                 Icon(
-                    imageVector = Icons.Default.Contacts,
-                    contentDescription = null,
+                    imageVector = Icons.Default.AddReaction,
+                    contentDescription = "Add Signal",
                     tint = Color.White,
                     modifier = Modifier
                         .size(36.dp) // Reduced icon size
@@ -177,10 +249,10 @@ fun InteractionUtils(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.Center
         ) {
             IconButton(
-                onClick = { addReaction() }
+                onClick = { openContacts() }
             ) {
                 Icon(
-                    imageVector = Icons.Default.AddReaction,
+                    imageVector = Icons.Default.AddAlert,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier
@@ -212,18 +284,119 @@ fun InteractionUtils(modifier: Modifier = Modifier) {
             }
         }
     }
+    if (showAddSignalDialog) {
+        AddSignalDialog(
+            onDismiss = { showAddSignalDialog = false },
+            onAddSignal = { iconId, description ->
+                // Handle adding the signal here
+                showAddSignalDialog = false
+            }
+        )
+    }
 }
+
+@Composable
+fun AddSignalDialog(
+    onDismiss: () -> Unit,
+    onAddSignal: (String, String) -> Unit
+) {
+    var selectedIcon by remember { mutableStateOf<Int?>(null) }
+    var description by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF34343C),
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Add Signal", fontWeight = FontWeight.Bold, color = Color.White)
+
+                LazyRow {
+                    items(SignalRepository().signalIcons) { iconId ->
+                        Image(
+                            painter = painterResource(id = iconId),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clickable { selectedIcon = iconId }
+                                .background(
+                                    if (selectedIcon == iconId) Color.LightGray else Color.Transparent,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .padding(4.dp)
+                        )
+                    }
+                }
+
+                TextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(colorResource(id = R.color.blue))) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            selectedIcon?.let { iconId ->
+                                onAddSignal(iconId.toString(), description)
+                            }
+                        },
+                        enabled = selectedIcon != null && description.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(colorResource(id = R.color.blue))
+                    ) {
+                        Text("Add")
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun onAddSignal(icon: String, description: String) {
+    val signal = Signal(
+        id = 0,
+        iconResourceId = icon,
+        description = description,
+        latitude = currentLatitude,
+        longitude = currentLongitude
+    )
+    val signalRepository = SignalRepository()
+
+    signalRepository.saveSignal(signal) { success ->
+        if (success) {
+            // Handle success (e.g., show a confirmation message)
+        } else {
+            // Handle failure (e.g., show an error message)
+        }
+    }
+}
+
+
+
 
 @Composable
 fun InteractionUtilsLayerControl(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 0.dp,
-                bottomEnd = 0.dp,
-                bottomStart = 16.dp
-            )) // Slightly smaller corner radius
+            .clip(
+                RoundedCornerShape(
+                    topStart = 16.dp,
+                    topEnd = 0.dp,
+                    bottomEnd = 0.dp,
+                    bottomStart = 16.dp
+                )
+            ) // Slightly smaller corner radius
             .background(Color(0xE64682B4))
             .height(64.dp) // Adjusted height for horizontal layout
             .padding(horizontal = 8.dp), // Added horizontal padding
@@ -250,7 +423,6 @@ fun InteractionUtilsLayerControl(modifier: Modifier = Modifier) {
         )
     }
 }
-
 
 
 @Composable
@@ -282,12 +454,6 @@ fun toggleSignalsLayer() {
     // Toggle the visibility of the Signals layer.
 }
 
-// TODO Lógica de adicionar icones
-// Isso incluir adicionar as layers ao mapa; Persistir os ícones na db;
-// Ter layering para que não se vejam todos os icones at all times
-fun addReaction() {
-    print("Add reaction")
-}
 
 // TODO Lógica de pedir ajuda de outros porters
 // Isso inclui enviar o pedido para porters nas proximidades; Criar um pop-up para estes;

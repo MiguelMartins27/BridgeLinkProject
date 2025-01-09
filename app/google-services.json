@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "522200704469",
+    "firebase_url": "https://bridgelink-3dbbf-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "bridgelink-3dbbf",
+    "storage_bucket": "bridgelink-3dbbf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:522200704469:android:53570880d0bf88ddfa095c",
+        "android_client_info": {
+          "package_name": "com.example.bridgelink"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "522200704469-1bk08e1ta3boq2u5nrlblbkugemfkmiq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA0J26TRc14noZUjnDORZi3C4elhlmFbJc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "522200704469-1bk08e1ta3boq2u5nrlblbkugemfkmiq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

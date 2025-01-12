@@ -1,28 +1,32 @@
 package com.example.bridgelink
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.example.bridgelink.navigation.NavGraph
 import com.example.bridgelink.ui.theme.BridgeLinkTheme
+import com.example.bridgelink.utils.SharedViewModel
 import com.google.firebase.FirebaseApp
 import com.mapbox.android.core.permissions.PermissionsManager
 import com.mapbox.android.core.permissions.PermissionsListener
+import com.mapbox.maps.MapView
+import com.mapbox.maps.plugin.locationcomponent.LocationComponentPlugin
+import com.mapbox.maps.plugin.locationcomponent.location
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var permissionsManager: PermissionsManager
-    private val REQUEST_RECORD_AUDIO_PERMISSION = 1
+    private lateinit var mapView: MapView
+    var longitude: Double = 0.0
+    var latitude: Double = 0.0
+    private val viewModel: SharedViewModel by viewModels()
 
     // Define the PermissionsListener for Mapbox location permissions
     private val permissionsListener: PermissionsListener = object : PermissionsListener {
@@ -50,7 +54,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        mapView = MapView(this)
+        if (this::mapView.isInitialized) {
+            mapView.getMapboxMap().loadStyleUri("mapbox://styles/miguelmartins27/cm4k61vj1007501si3wux1brp") {
+                enableLocationComponent()
+            }
+        } else {
 
+        }
 
         // Initialize Firebase
         FirebaseApp.initializeApp(this)
@@ -59,55 +70,36 @@ class MainActivity : ComponentActivity() {
 
         // Check if location permissions are granted
         if (PermissionsManager.areLocationPermissionsGranted(this)) {
-            // Permission granted, proceed with the logic (e.g., showing the user's location)
-            Toast.makeText(applicationContext, "Location permission already granted", Toast.LENGTH_SHORT).show()
-            // Add any logic to activate Mapbox's LocationComponent or other location-sensitive logic
+            // Proceed with location-sensitive logic
+            Toast.makeText(applicationContext, "Location permissions are granted", Toast.LENGTH_SHORT).show()
         } else {
             // Request the location permissions
             permissionsManager.requestLocationPermissions(this)
-        }
-
-        // Check for Audio Permissions
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            // If permission is not granted, request permission
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO_PERMISSION)
-        } else {
-            // Permission already granted, proceed with audio-related functionality
-            Toast.makeText(applicationContext, "Audio permission granted", Toast.LENGTH_SHORT).show()
         }
 
         setContent {
             BridgeLinkTheme {
                 val navController = rememberNavController()
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    // Only include the NavGraph
                     NavGraph(
                         navController = navController,
-                        modifier = Modifier.padding(innerPadding)
+                        modifier = Modifier.padding(innerPadding),
+                        sharedViewModel = viewModel
                     )
                 }
             }
         }
+
     }
-
-    // Override to handle the permission request result for both audio and location
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-        when (requestCode) {
-            REQUEST_RECORD_AUDIO_PERMISSION -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    // Audio permission granted, proceed with the logic
-                    Toast.makeText(applicationContext, "Audio permission granted", Toast.LENGTH_SHORT).show()
-                } else {
-                    // Audio permission denied, handle this case
-                    Toast.makeText(applicationContext, "Audio permission denied", Toast.LENGTH_SHORT).show()
-                }
-            }
-            else -> {
-                // Handle Mapbox permissions result here if necessary
-                permissionsManager.onRequestPermissionsResult(requestCode, permissions, grantResults)
-            }
+    private fun enableLocationComponent() {
+        val locationComponentPlugin: LocationComponentPlugin = mapView.location
+        locationComponentPlugin.updateSettings {
+            enabled = true
+        }
+        locationComponentPlugin.addOnIndicatorPositionChangedListener { point ->
+            latitude = point.latitude()
+            longitude = point.longitude()
+            viewModel.updateLocation(latitude, longitude)
         }
     }
 }

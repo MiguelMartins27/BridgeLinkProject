@@ -31,10 +31,11 @@ import com.example.bridgelink.Profile
 import com.example.bridgelink.R
 import com.example.bridgelink.SecondMainPage
 import com.example.bridgelink.TimeFallForecast
+import com.example.bridgelink.utils.SharedViewModel
 
 
 @Composable
-fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
+fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier, sharedViewModel: SharedViewModel) {
     NavHost(
         navController = navController,
         startDestination = Screens.MainPage.route,
@@ -56,7 +57,7 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier) {
             Profile(navController = navController)
         }
         composable (route = Screens.MainPage.route) {
-            MainPage(navController = navController)
+            MainPage(navController = navController, sharedViewModel = sharedViewModel)
         }
         composable (route = Screens.TimeFallForecast.route) {
             TimeFallForecast(navController = navController)

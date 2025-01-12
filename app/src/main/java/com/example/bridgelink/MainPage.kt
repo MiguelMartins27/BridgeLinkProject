@@ -1,9 +1,12 @@
 package com.example.bridgelink
 
 
-import android.content.pm.PackageManager
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.drawable.Drawable
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,12 +52,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import com.example.bridgelink.navigation.Screens
 import com.example.bridgelink.post.office.PostOfficeRepository
 import com.example.bridgelink.signals.Signal
 import com.example.bridgelink.signals.SignalRepository
+import com.example.bridgelink.utils.SharedViewModel
 import com.google.gson.JsonObject
 import com.mapbox.geojson.Point
 import com.mapbox.maps.ImageHolder
@@ -71,7 +76,13 @@ import com.mapbox.maps.plugin.locationcomponent.location
 
 
 @Composable
-fun MainPage(navController: NavController, modifier: Modifier = Modifier) {
+fun MainPage(
+    navController: NavController,
+    modifier: Modifier = Modifier,
+    sharedViewModel: SharedViewModel
+) {
+    val locationState = sharedViewModel.location.collectAsState()
+    val (latitude, longitude) = locationState.value
     val mapViewportState = rememberMapViewportState()
     Box(
         modifier = Modifier
@@ -85,11 +96,15 @@ fun MainPage(navController: NavController, modifier: Modifier = Modifier) {
             style = { MapStyle(style = "mapbox://styles/miguelmartins27/cm4k61vj1007501si3wux1brp") }
         ) {
             MapEffect(Unit) { mapView ->
+                val resizedBitmap = resizeDrawable(
+                    context = mapView.context,
+                    drawableId = R.drawable.porter,
+                    width = 200,  // Set your desired width
+                    height = 200  // Set your desired height
+                )
                 mapView.location.updateSettings {
                     locationPuck = LocationPuck2D(
-                        topImage = ImageHolder.from(R.drawable.eliseu),
-                        bearingImage = ImageHolder.from(R.drawable.eliseu),
-                        shadowImage = ImageHolder.from(R.drawable.eliseu)
+                        topImage = ImageHolder.from(resizedBitmap)
                     )
                     enabled = true
                     puckBearing = PuckBearing.COURSE
@@ -121,7 +136,9 @@ fun MainPage(navController: NavController, modifier: Modifier = Modifier) {
         InteractionUtils(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .offset(y = (56).dp) // Adjusted offset
+                .offset(y = (56).dp), // Adjusted offset
+            latitude = latitude,
+            longitude = longitude
         )
 
         InteractionUtilsLayerControl(
@@ -183,26 +200,30 @@ fun addSignalsLayer(mapView: MapView, signals: List<Int>) {
             val pointAnnotationManager = annotationApi.createPointAnnotationManager()
 
             signals.forEach { signal ->
-                val originalBitmap = BitmapFactory.decodeResource(mapView.context.resources, signal.iconResourceId.toInt())
-                val width = originalBitmap.width / 8 // Reduce width by half
-                val height = originalBitmap.height / 8 // Reduce height by half
-                val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, width, height, false)
-                val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
-                    .withPoint(Point.fromLngLat(signal.longitude, signal.latitude))
-                    .withIconImage(scaledBitmap)
-                    .withData(JsonObject().apply {
-                        addProperty("description", signal.description)
-                    })
+                val iconResourceId = signal.iconResourceName.toInt()
+                if (iconResourceId != 0) { // Check if resource is found
+                    val originalBitmap = BitmapFactory.decodeResource(mapView.context.resources, iconResourceId)
+                    val width = originalBitmap.width / 8 // Reduce width by half
+                    val height = originalBitmap.height / 8 // Reduce height by half
+                    val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, width, height, false)
+                    val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
+                        .withPoint(Point.fromLngLat(signal.longitude, signal.latitude))
+                        .withIconImage(scaledBitmap)
+                        .withData(JsonObject().apply {
+                            addProperty("description", signal.description)
+                        })
 
-                pointAnnotationManager.create(pointAnnotationOptions)
+                    pointAnnotationManager.create(pointAnnotationOptions)
+                } else {
+                    Log.e("MyTag", "Icon resource not found for: ${signal.iconResourceName}")
+                }
             }
         }
     }
 }
 
-@Preview
 @Composable
-fun InteractionUtils(modifier: Modifier = Modifier) {
+fun InteractionUtils(modifier: Modifier = Modifier, latitude: Double, longitude: Double) {
     var showAddSignalDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -290,7 +311,9 @@ fun InteractionUtils(modifier: Modifier = Modifier) {
             onAddSignal = { iconId, description ->
                 // Handle adding the signal here
                 showAddSignalDialog = false
-            }
+            },
+            latitude = latitude,
+            longitude = longitude
         )
     }
 }
@@ -298,6 +321,8 @@ fun InteractionUtils(modifier: Modifier = Modifier) {
 @Composable
 fun AddSignalDialog(
     onDismiss: () -> Unit,
+    latitude: Double,
+    longitude: Double,
     onAddSignal: (String, String) -> Unit
 ) {
     var selectedIcon by remember { mutableStateOf<Int?>(null) }
@@ -349,7 +374,8 @@ fun AddSignalDialog(
                     Button(
                         onClick = {
                             selectedIcon?.let { iconId ->
-                                onAddSignal(iconId.toString(), description)
+                                onAddSignal(iconId.toString(), description, latitude, longitude)
+                                onDismiss()
                             }
                         },
                         enabled = selectedIcon != null && description.isNotBlank(),
@@ -363,13 +389,12 @@ fun AddSignalDialog(
     }
 }
 
-fun onAddSignal(icon: String, description: String) {
+fun onAddSignal(icon: String, description: String, latitude: Double, longitude: Double) {
     val signal = Signal(
-        id = 0,
-        iconResourceId = icon,
+        iconResourceName = icon,
         description = description,
-        latitude = currentLatitude,
-        longitude = currentLongitude
+        latitude = latitude,
+        longitude = longitude,
     )
     val signalRepository = SignalRepository()
 
@@ -467,4 +492,13 @@ fun requestHelp() {
 // Criar uma página que pode aparecer por cima desta com os porters e a distância a que estão
 fun openContacts() {
     print("List of contacts")
+}
+
+fun resizeDrawable(context: Context, drawableId: Int, width: Int, height: Int): Bitmap {
+    val drawable: Drawable = ContextCompat.getDrawable(context, drawableId)!!
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    drawable.setBounds(0, 0, canvas.width, canvas.height)
+    drawable.draw(canvas)
+    return bitmap
 }

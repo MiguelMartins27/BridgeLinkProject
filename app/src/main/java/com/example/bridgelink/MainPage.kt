@@ -50,11 +50,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import com.example.bridgelink.danger.area.DangerAreaRepository
 import com.example.bridgelink.navigation.Screens
 import com.example.bridgelink.post.office.PostOfficeRepository
 import com.example.bridgelink.signals.Signal
@@ -76,11 +76,6 @@ import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createCircleAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
 import com.mapbox.maps.plugin.locationcomponent.location
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.pow
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 
 @Composable
@@ -127,6 +122,8 @@ fun MainPage(
                 addTimefallLayer(mapView)
                 addChiralNetworkLayer(mapView)
                 addSignalsLayer(mapView, SignalRepository().signalIcons)
+
+                addDangerAreasLayer(mapView) // Automatically add danger areas
             }
         }
 
@@ -425,7 +422,7 @@ fun InteractionUtilsLayerControl(
     modifier: Modifier = Modifier,
     mapView: MapView
 ) {
-    val dangerAreas = remember { mutableStateListOf<Pair<Double, Double>>() }
+    var isChiralNetworkLayerEnabled by remember { mutableStateOf(false) }
 
     Row(
         modifier = modifier
@@ -436,26 +433,33 @@ fun InteractionUtilsLayerControl(
                     bottomEnd = 0.dp,
                     bottomStart = 16.dp
                 )
-            ) // Slightly smaller corner radius
+            )
             .background(Color(0xE64682B4))
-            .height(64.dp) // Adjusted height for horizontal layout
-            .padding(horizontal = 8.dp), // Added horizontal padding
-        horizontalArrangement = Arrangement.Center, // Centering the buttons horizontally
-        verticalAlignment = Alignment.CenterVertically // Aligning the buttons vertically
+            .height(64.dp)
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // UI Buttons with logos to toggle layers
+        // Timefall Layer
         IconToggleButton(
             iconResId = R.drawable.umbrella,
             contentDescription = "Toggle Timefall Layer",
             onClick = { toggleTimefallLayer() }
         )
-        Spacer(modifier = Modifier.width(8.dp)) // Spacer between buttons
+        Spacer(modifier = Modifier.width(8.dp))
+
+        // Chiral Network Layer
         IconToggleButton(
             iconResId = R.drawable.connections,
             contentDescription = "Toggle Chiral Network Layer",
-            onClick = { toggleChiralNetworkLayer(mapView, dangerAreas) }
+            onClick = {
+                isChiralNetworkLayerEnabled = !isChiralNetworkLayerEnabled
+                toggleChiralNetworkLayer(mapView, isChiralNetworkLayerEnabled)
+            }
         )
-        Spacer(modifier = Modifier.width(8.dp)) // Spacer between buttons
+        Spacer(modifier = Modifier.width(8.dp))
+
+        // Signals Layer
         IconToggleButton(
             iconResId = R.drawable.signals,
             contentDescription = "Toggle Signals Layer",
@@ -463,7 +467,6 @@ fun InteractionUtilsLayerControl(
         )
     }
 }
-
 
 @Composable
 fun IconToggleButton(iconResId: Int, contentDescription: String, onClick: () -> Unit) {
@@ -486,109 +489,55 @@ fun toggleTimefallLayer() {
     // Toggle the visibility of the Timefall layer.
 }
 
-fun toggleChiralNetworkLayer(mapView: MapView, dangerAreas: MutableList<Pair<Double, Double>>) {
-    // Define danger areas close to the user's starting position
-    val predefinedDangerAreas = listOf(
-        Pair(38.796801, -9.233749), // Slightly north
-        Pair(38.796601, -9.233849), // Slightly south
-        Pair(38.796701, -9.233649), // Slightly east
-        Pair(38.796701, -9.233849)  // Slightly west
-    )
-
-    // Add these areas to the dangerAreas list
-    dangerAreas.clear() // Clear previous areas to avoid adding the same ones multiple times
-    dangerAreas.addAll(predefinedDangerAreas)
-
-    // Log the danger areas added
-    println("Danger areas added: $dangerAreas")
-
-    // Set up these danger areas on the map
-    setupDangerAreas(mapView, dangerAreas, radius = 5000.0)
-}
-
-// Function to set up multiple danger areas
-fun setupDangerAreas(mapView: MapView, dangerAreas: List<Pair<Double, Double>>, radius: Double) {
+fun toggleChiralNetworkLayer(mapView: MapView, isEnabled: Boolean) {
+    val userLatitude = 38.7967
+    val userLongitude = -9.2337
     val annotationApi = mapView.annotations
-    val circleAnnotationManager = annotationApi.createCircleAnnotationManager()
 
-    // Convert the radius to a pixel-based size (assumes a fixed zoom level, adjust as needed)
-    val pixelRadius = radius.toFloat() // This controls the radius of the circle
-    println("Using radius: $radius meters, which converts to $pixelRadius pixels")
+    if (isEnabled) {
+        val circleAnnotationManager = annotationApi.createCircleAnnotationManager()
 
-    dangerAreas.forEachIndexed { index, area ->
-        println("Creating circle for danger area $index at latitude: ${area.first}, longitude: ${area.second}")
+        val radius = 200.0 // Radius in meters
         val dangerArea = CircleAnnotationOptions()
-            .withPoint(Point.fromLngLat(area.second, area.first)) // Longitude first, then latitude
-            .withCircleRadius(pixelRadius.toDouble())
-            .withCircleColor("#FF0000")
-            .withCircleOpacity(1.0)
-
-        // Log before creating each circle annotation
-        println("Creating circle annotation with options: $dangerArea")
+            .withPoint(Point.fromLngLat(userLongitude, userLatitude)) // Longitude first, then latitude
+            .withCircleRadius(radius)
+            .withCircleColor("#FF0000") // Bright red
+            .withCircleOpacity(0.5) // Semi-transparent
 
         try {
             circleAnnotationManager.create(dangerArea)
-            println("Successfully created danger area circle at (${area.first}, ${area.second})")
+            println("Successfully created danger area at ($userLatitude, $userLongitude)")
         } catch (e: Exception) {
-            println("Error creating circle annotation for danger area $index at (${area.first}, ${area.second}): ${e.message}")
+            println("Error creating danger area: ${e.message}")
         }
+    } else {
+        annotationApi.cleanup() // Removes all annotations, including circles
+        println("Danger area layer removed.")
     }
 }
 
-// Function to add a danger area
-fun addDangerArea(mapView: MapView, latitude: Double, longitude: Double, radius: Double) {
+fun addDangerAreasLayer(mapView: MapView) {
     val annotationApi = mapView.annotations
     val circleAnnotationManager = annotationApi.createCircleAnnotationManager()
 
-    val dangerArea = CircleAnnotationOptions()
-        .withPoint(Point.fromLngLat(longitude, latitude))
-        .withCircleRadius(radius)
-        .withCircleColor("#FF0000")
-        .withCircleOpacity(0.5)
+    val repository = DangerAreaRepository()
+    repository.fetchDangerAreas { areas ->
+        areas.forEach { area ->
+            val dangerArea = CircleAnnotationOptions()
+                .withPoint(Point.fromLngLat(area.longitude, area.latitude))
+                .withCircleRadius(area.radius / 10) // Adjust for display
+                .withCircleColor("#FF0000")
+                .withCircleOpacity(0.5)
 
-    // Log the danger area details
-    println("Adding danger area at latitude: $latitude, longitude: $longitude with radius: $radius meters")
-
-    try {
-        circleAnnotationManager.create(dangerArea)
-        println("Successfully added danger area at ($latitude, $longitude)")
-    } catch (e: Exception) {
-        println("Error adding danger area at ($latitude, $longitude): ${e.message}")
-    }
-}
-
-// Function to check proximity to danger areas
-fun checkProximityToDangerAreas(
-    userLat: Double,
-    userLng: Double,
-    dangerAreas: List<Pair<Double, Double>>,
-    radius: Double
-): String {
-    for ((index, area) in dangerAreas.withIndex()) {
-        val distance = calculateDistance(userLat, userLng, area.first, area.second)
-        println("Checking proximity for user at ($userLat, $userLng) to danger area $index at (${area.first}, ${area.second}) with distance $distance meters")
-
-        if (distance <= radius) {
-            return if (distance < 50) "Danger" else "Unsafe"
+            try {
+                circleAnnotationManager.create(dangerArea)
+            } catch (e: Exception) {
+                Log.e("DangerAreaError", "Failed to create danger area: ${e.message}")
+            }
         }
     }
-    return "Safe"
 }
 
-// Utility function to calculate distance between two geographic points in meters
-fun calculateDistance(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
-    val earthRadius = 6371000.0 // meters
-    val dLat = Math.toRadians(lat2 - lat1)
-    val dLng = Math.toRadians(lng2 - lng1)
-    val a = sin(dLat / 2).pow(2) +
-            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLng / 2).pow(2)
-    val c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    val distance = earthRadius * c
-
-    // Debugging the distance calculation
-    println("Calculated distance between ($lat1, $lng1) and ($lat2, $lng2) is $distance meters")
-    return distance
-}
 
 fun toggleSignalsLayer() {
     // Toggle the visibility of the Signals layer.

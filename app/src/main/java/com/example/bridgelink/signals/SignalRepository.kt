@@ -19,21 +19,20 @@ class SignalRepository {
                 signalsList.clear()
 
                 for (signalSnapshot in snapshot.children) {
-                    val id = signalSnapshot.child("id").getValue(Int::class.java) ?: 0
-                    val iconUrl = signalSnapshot.child("iconUrl").getValue(String::class.java) ?: ""
+                    val iconResourceName = signalSnapshot.child("iconResourceName").getValue(String::class.java) ?: "" // Retrieve as String
                     val description = signalSnapshot.child("description").getValue(String::class.java) ?: ""
                     val latitude = signalSnapshot.child("latitude").getValue(Double::class.java) ?: 0.0
                     val longitude = signalSnapshot.child("longitude").getValue(Double::class.java) ?: 0.0
 
-                    signalsList.add(Signal(id, iconUrl, description, latitude, longitude))
+                    // Validate iconResourceName
+                    signalsList.add(Signal(iconResourceName.lowercase(), description, latitude, longitude))
                 }
 
-                // Pass the signals list to the calling function
                 onDataFetched(signalsList)
             }
 
             override fun onCancelled(error: DatabaseError) {
-
+                // Handle database error
             }
         })
     }

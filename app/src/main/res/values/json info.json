@@ -1,0 +1,113 @@
+{
+   "post_offices": {
+     "1": {
+       "name": "Post Office 1",
+       "latitude": 38.800751,
+       "longitude": -9.229210
+     },
+     "2": {
+       "name": "Post Office 2",
+       "latitude": 38.796186,
+       "longitude": -9.233999
+     },
+     "3": {
+       "name": "Post Office 3",
+       "latitude": 38.796199,
+       "longitude": -9.234829
+     }
+   },
+   "weather" : {
+     "Cagliari": {
+      "LocalObservationDateTime":"2025-01-18T12:21:00+01:00",
+      "EpochTime":1737199260,
+      "WeatherText":"Light rain",
+      "WeatherIcon":12,
+      "HasPrecipitation":true,
+      "PrecipitationType":"Rain",
+      "IsDayTime":true,
+      "Temperature":{
+         "Metric":{
+            "Value":14.0,
+            "Unit":"C",
+            "UnitType":17
+         },
+         "Imperial":{
+            "Value":57.0,
+            "Unit":"F",
+            "UnitType":18
+         }
+      },
+      "MobileLink":"http://www.accuweather.com/en/it/cagliari/215279/current-weather/215279?lang=en-us",
+      "Link":"http://www.accuweather.com/en/it/cagliari/215279/current-weather/215279?lang=en-us"
+     },
+     "California": {
+      "LocalObservationDateTime":"2025-01-18T06:17:00-05:00",
+      "EpochTime":1737199020,
+      "WeatherText":"Cloudy",
+      "WeatherIcon":7,
+      "HasPrecipitation":false,
+      "PrecipitationType":null,
+      "IsDayTime":false,
+      "Temperature":{
+         "Metric":{
+            "Value":2.2,
+            "Unit":"C",
+            "UnitType":17
+         },
+         "Imperial":{
+            "Value":36.0,
+            "Unit":"F",
+            "UnitType":18
+         }
+      },
+      "MobileLink":"http://www.accuweather.com/en/us/california-md/20619/current-weather/2121532?lang=en-us",
+      "Link":"http://www.accuweather.com/en/us/california-md/20619/current-weather/2121532?lang=en-us"
+     },
+     "Lisbon": {
+      "LocalObservationDateTime":"2025-01-18T10:51:00+00:00",
+      "EpochTime":1737197460,
+      "WeatherText":"Sunny",
+      "WeatherIcon":1,
+      "HasPrecipitation":false,
+      "PrecipitationType":null,
+      "IsDayTime":true,
+      "Temperature":{
+         "Metric":{
+            "Value":8.6,
+            "Unit":"C",
+            "UnitType":17
+         },
+         "Imperial":{
+            "Value":47.0,
+            "Unit":"F",
+            "UnitType":18
+         }
+      },
+      "MobileLink":"http://www.accuweather.com/en/pt/lisbon/274087/current-weather/274087?lang=en-us",
+      "Link":"http://www.accuweather.com/en/pt/lisbon/274087/current-weather/274087?lang=en-us"
+     },
+     "Tokyo": {
+      "LocalObservationDateTime":"2025-01-18T19:47:00+09:00",
+      "EpochTime":1737197220,
+      "WeatherText":"Mostly clear",
+      "WeatherIcon":34,
+      "HasPrecipitation":false,
+      "PrecipitationType":null,
+      "IsDayTime":false,
+      "Temperature":{
+         "Metric":{
+            "Value":6.9,
+            "Unit":"C",
+            "UnitType":17
+         },
+         "Imperial":{
+            "Value":45.0,
+            "Unit":"F",
+            "UnitType":18
+         }
+      },
+      "MobileLink":"http://www.accuweather.com/en/jp/tokyo/226396/current-weather/226396?lang=en-us",
+      "Link":"http://www.accuweather.com/en/jp/tokyo/226396/current-weather/226396?lang=en-us"
+     }
+   }
+ }

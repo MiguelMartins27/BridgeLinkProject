@@ -525,7 +525,7 @@ fun addSignalsLayer(mapView: MapView) {
 }
 
 fun addTimefallLayer(mapView: MapView) {
-    val locations = listOf("Lisbon", "Porto", "Madrid", "Barcelona")
+    val locations = listOf("California", "Lisboa", "Tokyo")
     val locationKeys = mutableListOf<String>()
     val weatherData = mutableListOf<WeatherInfo>()
 
@@ -546,7 +546,7 @@ fun addTimefallLayer(mapView: MapView) {
     // Step 2: Fetch weather data for each location
     CoroutineScope(Dispatchers.Main).launch {
         locationKeys.forEach { locationKey ->
-            val weather = locationKey?.let { weatherInfoRepository.fetchWeatherData(it) }
+            val weather = locationKey.let { weatherInfoRepository.fetchWeatherData(it) }
             if (weather != null) {
                 weatherData.add(weather)
             } else {
@@ -561,27 +561,23 @@ fun addTimefallLayer(mapView: MapView) {
         val annotationApi = mapView.annotations
         timefallManager = annotationApi.createCircleAnnotationManager()
 
-        weatherData.forEachIndexed { index, weather ->
-            val point = when (index) {
-                0 -> Point.fromLngLat(-9.1395, 38.7169) // Lisbon
-                1 -> Point.fromLngLat(-8.6110, 41.1496) // Porto
-                2 -> Point.fromLngLat(-3.7038, 40.4168) // Madrid
-                3 -> Point.fromLngLat(2.1734, 41.3851) // Barcelona
-                else -> Point.fromLngLat(0.0, 0.0)
-            }
-            val circleAnnotationOptions = CircleAnnotationOptions()
-                .withPoint(point)
-                .withCircleRadius(60.0) // Set the radius of the circle
-                .withCircleColor("#FF5733") // Set the color of the circle (example: orange)
-                .withCircleOpacity(0.7) // Set the opacity of the circle
-                .withData(JsonObject().apply {
-                    addProperty("description", weather.description)
-                })
+        // Use only the first weather point
+        val point = Point.fromLngLat(-9.3, 38.79699)
 
-            // Create the circle annotation and add it to the manager
-            val circleAnnotation = timefallManager.create(circleAnnotationOptions)
-            timefallAnnotations.add(circleAnnotation)
-        }
+        // Create the CircleAnnotationOptions
+        val circleAnnotationOptions = CircleAnnotationOptions()
+            .withPoint(point)
+            .withCircleRadius(60.0) // Set the radius of the circle
+            .withCircleColor("#FF5733") // Set the color of the circle (example: orange)
+            .withCircleOpacity(0.7) // Set the opacity of the circle
+            .withData(JsonObject().apply {
+                // Use the description from the first weather data entry
+                addProperty("description", weatherData.firstOrNull()?.description ?: "No description")
+            })
+
+        // Create the circle annotation and add it to the manager
+        val circleAnnotation = timefallManager.create(circleAnnotationOptions)
+        timefallAnnotations.add(circleAnnotation)
     }
 }
 

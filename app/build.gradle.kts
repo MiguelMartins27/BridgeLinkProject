@@ -78,7 +78,6 @@ dependencies {
 
     implementation("com.mapbox.maps:android:11.9.0")
     implementation("com.mapbox.extension:maps-compose:11.9.0")
-
     // Google Sign In SDK
     implementation("com.google.android.gms:play-services-auth:20.5.0")
 
@@ -91,4 +90,9 @@ dependencies {
     // Firebase UI Library
     implementation("com.firebaseui:firebase-ui-auth:8.0.2")
     implementation("com.firebaseui:firebase-ui-database:8.0.2")
+
+    // OkHttp
+    implementation("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.9.3")
+
 }

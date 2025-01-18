@@ -1,5 +1,6 @@
 package com.example.bridgelink.danger.area
 
+import android.util.Log
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.DataSnapshot

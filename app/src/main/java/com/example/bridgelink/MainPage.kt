@@ -87,6 +87,8 @@ import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlin.math.pow
 
@@ -525,61 +527,161 @@ fun addSignalsLayer(mapView: MapView) {
 }
 
 fun addTimefallLayer(mapView: MapView) {
-    val locations = listOf("California", "Lisboa", "Tokyo")
-    val locationKeys = mutableListOf<String>()
-    val weatherData = mutableListOf<WeatherInfo>()
+    // List of location names
+    val locations = listOf("California", "Lisboa", "Tokyo", "Cagliari")
+
+    // List of coordinates for each location
+    val locationCoordinates = listOf(
+        LocationPoint(38.8100, -9.2285), // North of Casal de Cambra (California)
+        LocationPoint(38.8009, -9.2150), // East of Casal de Cambra (Lisboa)
+        LocationPoint(38.7900, -9.2285), // South of Casal de Cambra (Tokyo)
+        LocationPoint(38.8009, -9.2420)  // West of Casal de Cambra (Cagliari)
+    )
 
     val weatherInfoRepository = WeatherInfoRepository()
 
-    // Step 1: Retrieve location keys
+    // Start a coroutine to run the weather data fetch concurrently
     CoroutineScope(Dispatchers.Main).launch {
-        locations.forEach { location ->
-            val locationKey = weatherInfoRepository.fetchLocationKey(location)
-            if (locationKey != null) {
-                locationKeys.add(locationKey)
-            } else {
-                Log.e("WeatherLayer", "Location key not found for: $location")
+        val deferredResults = locations.zip(locationCoordinates).map { (location, coordinates) ->
+            // Use async to run each weather fetch concurrently
+            async {
+                // Fetch weather data for the current location using location name and coordinates
+                weatherInfoRepository.fetchWeather({ weatherList ->
+                    mapView.getMapboxMap().getStyle { style ->
+                        val annotationApi = mapView.annotations
+                        timefallManager = annotationApi.createCircleAnnotationManager()
+
+                        weatherList.forEach { weather ->
+                            val point = Point.fromLngLat(coordinates.longitude, coordinates.latitude)
+                            val circleAnnotationOptions = CircleAnnotationOptions()
+                                .withPoint(point) // Use coordinates
+                                .withCircleRadius(60.0) // Set the radius of the circle
+                                .withCircleColor("#FF5733") // Set the color of the circle
+                                .withCircleOpacity(0.7) // Set the opacity of the circle
+                                .withData(JsonObject().apply {
+                                    addProperty("temperature", weather.temperature)
+                                    addProperty("condition", weather.condition)
+                                    addProperty("description", weather.description)
+                                    addProperty("latitude", weather.latitude)
+                                    addProperty("longitude", weather.longitude)
+                                })
+
+                            val annotation = timefallManager.create(circleAnnotationOptions)
+                            timefallAnnotations.add(annotation)
+                        }
+                    }
+                }, location, coordinates.latitude, coordinates.longitude) // Pass the location name and coordinates
+            }
+        }
+
+        // Wait for all async operations to complete
+        deferredResults.awaitAll()
+
+        // Listen for zoom level changes
+        mapView.getMapboxMap().addOnCameraChangeListener {
+            val currentZoom = mapView.getMapboxMap().cameraState.zoom
+            val shouldBeVisible = currentZoom >= 14.0 && currentZoom <= 18.0
+
+            timefallAnnotations.forEach { annotation ->
+                annotation.circleOpacity = if (shouldBeVisible) 0.7 else 0.0
+                timefallManager.update(annotation)
             }
         }
     }
+}
 
-    // Step 2: Fetch weather data for each location
+fun addTimefallLayer2(mapView: MapView) {
+    val locations = listOf("California", "Lisboa", "Tokyo", "Cagliari")
+    val locationKeys = mutableListOf<String>()
+    val weatherData = mutableListOf<WeatherInfo>()
+
+    // List of coordinates for each location
+    val locationCoordinates = listOf(
+        LocationPoint(38.8100, -9.2285), // North of Casal de Cambra (California)
+        LocationPoint(38.8009, -9.2150), // East of Casal de Cambra (Lisboa)
+        LocationPoint(38.7900, -9.2285), // South of Casal de Cambra (Tokyo)
+        LocationPoint(38.8009, -9.2420)  // West of Casal de Cambra (Cagliari)
+    )
+
+    val weatherInfoRepository = WeatherInfoRepository()
+
+    // Step 1: Retrieve location keys concurrently using async
     CoroutineScope(Dispatchers.Main).launch {
-        locationKeys.forEach { locationKey ->
-            val weather = locationKey.let { weatherInfoRepository.fetchWeatherData(it) }
-            if (weather != null) {
-                weatherData.add(weather)
-            } else {
-                Log.e("WeatherLayer", "Weather data not found for location key: $locationKey")
+        val deferredLocationKeys = locations.map { location ->
+            async {
+                val locationKey = weatherInfoRepository.fetchLocationKey(location)
+                if (locationKey != null) {
+                    locationKey
+                } else {
+                    Log.e("WeatherLayer", "Location key not found for: $location")
+                    null
+                }
             }
         }
+
+        // Await the result of all async tasks and collect the location keys
+        deferredLocationKeys.awaitAll().forEach { locationKey ->
+            locationKey?.let { locationKeys.add(it) }
+        }
+
+        // Step 2: Fetch weather data concurrently for each location key
+        val deferredWeatherData = locationKeys.map { locationKey ->
+            async {
+                // Assuming you have a way to correlate location keys with coordinates, for example:
+                val coordinates = locationCoordinates.firstOrNull { location -> locationKey.contains(location.latitude.toString()) }
+                if (coordinates != null) {
+                    val weather = weatherInfoRepository.fetchWeatherData(locationKey, coordinates.latitude, coordinates.longitude)
+                    weather
+                } else {
+                    Log.e("WeatherLayer", "Coordinates not found for location key: $locationKey")
+                    null
+                }
+            }
+        }
+
+        // Await the result of all async tasks and collect the weather data
+        deferredWeatherData.awaitAll().forEach { weather ->
+            weather?.let { weatherData.add(it) }
+        }
+
+        // Step 3: Add weather data to map
+        addWeatherDataToMap(weatherData, mapView)
     }
+}
 
-
-    // Step 3: Add weather data to map
+// Step 3: Add weather data to map
+private fun addWeatherDataToMap(weatherData: List<WeatherInfo>, mapView: MapView) {
     mapView.getMapboxMap().getStyle { style ->
         val annotationApi = mapView.annotations
         timefallManager = annotationApi.createCircleAnnotationManager()
 
-        // Use only the first weather point
-        val point = Point.fromLngLat(-9.3, 38.79699)
+        // Loop through all weather data and add annotations
+        weatherData.forEach { weatherInfo ->
+            // Use weatherInfo's latitude and longitude for positioning the point
+            val point = Point.fromLngLat(weatherInfo.longitude, weatherInfo.latitude)
 
-        // Create the CircleAnnotationOptions
-        val circleAnnotationOptions = CircleAnnotationOptions()
-            .withPoint(point)
-            .withCircleRadius(60.0) // Set the radius of the circle
-            .withCircleColor("#FF5733") // Set the color of the circle (example: orange)
-            .withCircleOpacity(0.7) // Set the opacity of the circle
-            .withData(JsonObject().apply {
-                // Use the description from the first weather data entry
-                addProperty("description", weatherData.firstOrNull()?.description ?: "No description")
-            })
+            // Create the CircleAnnotationOptions
+            val circleAnnotationOptions = CircleAnnotationOptions()
+                .withPoint(point) // Set the point for the annotation
+                .withCircleRadius(60.0) // Set the radius of the circle
+                .withCircleColor("#FF5733") // Set the color of the circle
+                .withCircleOpacity(0.7) // Set the opacity of the circle
+                .withData(JsonObject().apply {
+                    addProperty("description", weatherInfo.description ?: "No description")
+                    addProperty("temperature", weatherInfo.temperature)
+                    addProperty("condition", weatherInfo.condition)
+                    addProperty("latitude", weatherInfo.latitude)
+                    addProperty("longitude", weatherInfo.longitude)
+                })
 
-        // Create the circle annotation and add it to the manager
-        val circleAnnotation = timefallManager.create(circleAnnotationOptions)
-        timefallAnnotations.add(circleAnnotation)
+            // Create the circle annotation and add it to the manager
+            val circleAnnotation = timefallManager.create(circleAnnotationOptions)
+            timefallAnnotations.add(circleAnnotation)
+        }
     }
 }
+
+
 
 fun toggleAnnotation(type: String, isVisible: Boolean) {
     when (type) {
@@ -647,3 +749,12 @@ fun IconToggleButton(iconResId: Int, contentDescription: String, onClick: () -> 
         )
     }
 }
+
+data class LocationPoint(val latitude: Double, val longitude: Double)
+val locationPoint: List<LocationPoint> = listOf(
+    //LocationPoint(38.800988, -9.2285129), // Casal de Cambra
+    LocationPoint(38.8100, -9.2285),      // North of Casal de Cambra (Further)
+    LocationPoint(38.8009, -9.2150),      // East of Casal de Cambra (Further)
+    LocationPoint(38.7900, -9.2285),      // South of Casal de Cambra (Further)
+    LocationPoint(38.8009, -9.2420)       // West of Casal de Cambra (Further)
+)

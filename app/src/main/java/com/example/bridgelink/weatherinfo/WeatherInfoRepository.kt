@@ -43,7 +43,7 @@ class WeatherInfoRepository {
         }
     }
 
-    suspend fun fetchWeatherData(locationKey: String): WeatherInfo? = withContext(Dispatchers.IO) {
+    suspend fun fetchWeatherData(locationKey: String, latitude: Double, longitude: Double): WeatherInfo? = withContext(Dispatchers.IO) {
         val url = "https://dataservice.accuweather.com/currentconditions/v1/$locationKey?apikey=$apiKey"
         val request = Request.Builder()
             .url(url)
@@ -64,7 +64,7 @@ class WeatherInfoRepository {
 
                 // Constructing a simple weather description
                 val description = "Temperature: $temperature°C, Condition: $condition"
-                WeatherInfo(temperature, condition, description, getDrawableForWeather(condition))
+                WeatherInfo(temperature, condition, description, latitude, longitude, getDrawableForWeather(condition))
             } else {
                 null
             }
@@ -84,19 +84,19 @@ class WeatherInfoRepository {
         return null
     }
 
-    fun fetchWeather(onDataFetched: (List<WeatherInfo>) -> Unit) {
+    fun fetchWeather(onDataFetched: (List<WeatherInfo>) -> Unit, location: String, latitude: Double, longitude: Double) {
         val weatherList = mutableListOf<WeatherInfo>()
 
-        database.addValueEventListener(object : ValueEventListener {
+        database.child(location).addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 weatherList.clear()
+                val metricSnapshot = snapshot.child("temperature").child("metric")
 
-                for (weatherSnapshot in snapshot.children) {
+                val value = metricSnapshot.child("value").getValue(Int::class.java) ?: 0
+                val condition = snapshot.child("condition").getValue(String::class.java) ?: ""
+                val description = snapshot.child("description").getValue(String::class.java) ?: ""
 
-
-                    // Validate iconResourceName
-                    weatherList.add(WeatherInfo(temperature, condition, description, getDrawableForWeather(condition)))
-                }
+                weatherList.add(WeatherInfo(value, condition, description, latitude, longitude, getDrawableForWeather(condition)))
 
                 onDataFetched(weatherList)
             }
@@ -106,6 +106,7 @@ class WeatherInfoRepository {
             }
         })
     }
+
 
     private fun getDrawableForWeather(weather: String): Int {
         return when (weather) {
@@ -145,6 +146,5 @@ class WeatherInfoRepository {
             else -> R.drawable.unknown
         }
     }
-
 
 }

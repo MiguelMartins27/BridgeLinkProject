@@ -1,17 +1,14 @@
 package com.example.bridgelink
 
+import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,13 +20,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.bridgelink.navigation.NavigationDots
-
+import com.example.bridgelink.navigation.Screens
+import com.example.bridgelink.users.User
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
-fun Profile (navController: NavController, modifier: Modifier = Modifier) {
-
-    Column (
+fun Profile(navController: NavController, signOut: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(colorResource(id = R.color.navy_blue)),
@@ -37,7 +34,6 @@ fun Profile (navController: NavController, modifier: Modifier = Modifier) {
     ) {
         Spacer(modifier = Modifier.height(100.dp))
 
-        // TODO Lógica de importação dos dados do user
         ProfilePic(
             img = painterResource(id = R.drawable.eliseu),
             modifier = Modifier.padding(16.dp)
@@ -45,25 +41,27 @@ fun Profile (navController: NavController, modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Fake user data
-        val fakeUserData = UserDataSet(
-            name = "Eliseu",
-            bloodType = "O+",
-            height = "1.80m",
-            weight = "70kg",
-            deliveries = "47 deliveries (85% success rate)",
-            distanceWalked = "100km",
-            timefallExposure = "10 minutes"
-        )
+        Spacer(modifier = Modifier.height(20.dp))
 
-        ProfileInfo(userData = fakeUserData)
+        // Sign out button
+        Button(
+            onClick = {
+                signOut() // Call the signOut function passed from MainActivity
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.blue))
+        ) {
+            Text(text = "Sign Out", color = Color.White)
+        }
+
     }
 }
 
 
-
 @Composable
-fun ProfilePic(img : Painter, modifier: Modifier = Modifier) {
+fun ProfilePic(img: Painter, modifier: Modifier = Modifier) {
     Image(
         painter = img,
         contentDescription = null,
@@ -74,19 +72,9 @@ fun ProfilePic(img : Painter, modifier: Modifier = Modifier) {
     )
 }
 
-data class UserDataSet(
-    val name: String,
-    val bloodType: String,
-    val height: String,
-    val weight: String,
-    val deliveries: String,
-    val distanceWalked: String,
-    val timefallExposure: String
-)
-
 @Composable
-fun ProfileInfo(userData: UserDataSet, modifier: Modifier = Modifier) {
-    Box (
+fun ProfileInfo(userData: User, modifier: Modifier = Modifier) {
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(colorResource(id = R.color.navy_blue))
@@ -105,7 +93,7 @@ fun ProfileInfo(userData: UserDataSet, modifier: Modifier = Modifier) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Column (
+            Column(
                 modifier = Modifier
                     .padding(16.dp),
                 horizontalAlignment = Alignment.Start
@@ -131,7 +119,7 @@ fun ProfileInfo(userData: UserDataSet, modifier: Modifier = Modifier) {
 
             Spacer(modifier = Modifier.height(36.dp))
 
-            Column (
+            Column(
                 modifier = Modifier
                     .clip(shape = RoundedCornerShape(10.dp))
                     .background(Color(0x994682B4))
@@ -157,12 +145,5 @@ fun ProfileInfo(userData: UserDataSet, modifier: Modifier = Modifier) {
                 )
             }
         }
-        NavigationDots(
-            currentPage = 3,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-        )
     }
 }
-
-

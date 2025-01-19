@@ -2,7 +2,6 @@ package com.example.bridgelink.navigation
 
 
 //importing the screens
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,25 +24,20 @@ import androidx.navigation.compose.composable
 import com.example.bridgelink.CargoManagement
 import com.example.bridgelink.ChiralNetworkMap
 import com.example.bridgelink.MainPage
-import com.example.bridgelink.Menu
 import com.example.bridgelink.OdradekScanner
 import com.example.bridgelink.Profile
 import com.example.bridgelink.R
 import com.example.bridgelink.SecondMainPage
-import com.example.bridgelink.TimeFallForecast
 import com.example.bridgelink.utils.SharedViewModel
 
 
 @Composable
-fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier, sharedViewModel: SharedViewModel) {
+fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier, sharedViewModel: SharedViewModel, signOut: () -> Unit) {
     NavHost(
         navController = navController,
         startDestination = Screens.MainPage.route,
         modifier = modifier
     ) {
-        composable(route = Screens.LoginInicial.route) {
-            Menu(navController = navController)
-        }
         composable (route = Screens.CargoManagement.route) {
             CargoManagement(navController = navController)
         }
@@ -54,13 +48,10 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier, sh
             OdradekScanner(navController = navController)
         }
         composable (route = Screens.Profile.route) {
-            Profile(navController = navController)
+            Profile(navController = navController, signOut = signOut)
         }
         composable (route = Screens.MainPage.route) {
             MainPage(navController = navController, sharedViewModel = sharedViewModel)
-        }
-        composable (route = Screens.TimeFallForecast.route) {
-            TimeFallForecast(navController = navController)
         }
         composable (route = Screens.SecondMainPage.route) {
             SecondMainPage(navController = navController)

@@ -1,5 +1,6 @@
 package com.example.bridgelink
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -13,7 +14,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.bridgelink.navigation.NavGraph
 import com.example.bridgelink.ui.theme.BridgeLinkTheme
 import com.example.bridgelink.utils.SharedViewModel
-import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
 import com.mapbox.android.core.permissions.PermissionsManager
 import com.mapbox.android.core.permissions.PermissionsListener
 import com.mapbox.maps.MapView
@@ -27,6 +28,8 @@ class MainActivity : ComponentActivity() {
     var longitude: Double = 0.0
     var latitude: Double = 0.0
     private val viewModel: SharedViewModel by viewModels()
+    // Firebase instance variables
+    private lateinit var auth: FirebaseAuth
 
     // Define the PermissionsListener for Mapbox location permissions
     private val permissionsListener: PermissionsListener = object : PermissionsListener {
@@ -54,17 +57,25 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize Firebase Auth and check if the user is signed in
+        auth = FirebaseAuth.getInstance()
+        if (auth.currentUser == null) {
+            // Not signed in, launch the Sign In activity
+            startActivity(Intent(this, SignInActivity::class.java))
+            finish()
+            return
+        }
+
         mapView = MapView(this)
         if (this::mapView.isInitialized) {
             mapView.getMapboxMap().loadStyleUri("mapbox://styles/miguelmartins27/cm4k61vj1007501si3wux1brp") {
                 enableLocationComponent()
             }
-        } else {
-
         }
 
         // Initialize Firebase
-        FirebaseApp.initializeApp(this)
+        // FirebaseApp.initializeApp(this)
         // Initialize PermissionsManager with the current activity context
         permissionsManager = PermissionsManager(permissionsListener)
 
@@ -84,13 +95,16 @@ class MainActivity : ComponentActivity() {
                     NavGraph(
                         navController = navController,
                         modifier = Modifier.padding(innerPadding),
-                        sharedViewModel = viewModel
+                        sharedViewModel = viewModel,
+                        signOut = {
+                            signOutUser()
+                        }
                     )
                 }
             }
         }
-
     }
+
     private fun enableLocationComponent() {
         val locationComponentPlugin: LocationComponentPlugin = mapView.location
         locationComponentPlugin.updateSettings {
@@ -101,5 +115,40 @@ class MainActivity : ComponentActivity() {
             longitude = point.longitude()
             viewModel.updateLocation(latitude, longitude)
         }
+    }
+
+    public override fun onStart() {
+        super.onStart()
+        // Check if user is signed in.
+        if (auth.currentUser == null) {
+            // Not signed in, launch the Sign In activity
+            startActivity(Intent(this, SignInActivity::class.java))
+            finish()
+            return
+        }
+    }
+
+    private fun getPhotoUrl(): String? {
+        val user = auth.currentUser
+        return user?.photoUrl?.toString()
+    }
+
+    private fun getUserName(): String? {
+        val user = auth.currentUser
+        return if (user != null) {
+            user.displayName
+        } else ANONYMOUS
+    }
+
+    private fun signOutUser() {
+        auth.signOut()
+        // Navigate to SignInActivity after sign-out
+        val intent = Intent(this, SignInActivity::class.java)
+        startActivity(intent)
+        finish()  // Close MainActivity to avoid returning to it after sign-out
+    }
+
+    companion object {
+        const val ANONYMOUS = "anonymous"
     }
 }

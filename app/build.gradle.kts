@@ -60,6 +60,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.play.services.maps)
+    implementation(libs.androidx.appcompat)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -78,17 +79,21 @@ dependencies {
 
     implementation("com.mapbox.maps:android:11.9.0")
     implementation("com.mapbox.extension:maps-compose:11.9.0")
-
     // Google Sign In SDK
     implementation("com.google.android.gms:play-services-auth:20.5.0")
 
     // Firebase SDK
-    implementation(platform("com.google.firebase:firebase-bom:32.0.0"))
-    implementation("com.google.firebase:firebase-database-ktx")
-    implementation("com.google.firebase:firebase-storage-ktx")
-    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    implementation("com.google.firebase:firebase-database")
+    implementation("com.google.firebase:firebase-storage")
+    implementation("com.google.firebase:firebase-auth")
 
     // Firebase UI Library
     implementation("com.firebaseui:firebase-ui-auth:8.0.2")
     implementation("com.firebaseui:firebase-ui-database:8.0.2")
+
+    // OkHttp
+    implementation("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.9.3")
+
 }

@@ -54,12 +54,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import com.example.bridgelink.danger.area.DangerArea
 import com.example.bridgelink.danger.area.DangerAreaRepository
 import com.example.bridgelink.navigation.Screens
 import com.example.bridgelink.post.office.PostOfficeRepository
 import com.example.bridgelink.signals.Signal
 import com.example.bridgelink.signals.SignalRepository
 import com.example.bridgelink.utils.SharedViewModel
+import com.example.bridgelink.weatherinfo.WeatherInfo
+import com.example.bridgelink.weatherinfo.WeatherInfoRepository
 import com.google.gson.JsonObject
 import com.mapbox.geojson.Point
 import com.mapbox.maps.ImageHolder
@@ -68,14 +71,26 @@ import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
 import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
 import com.mapbox.maps.extension.compose.style.MapStyle
+import com.mapbox.maps.extension.style.expressions.generated.Expression
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.PuckBearing
 import com.mapbox.maps.plugin.annotation.annotations
+import com.mapbox.maps.plugin.annotation.generated.CircleAnnotation
+import com.mapbox.maps.plugin.annotation.generated.CircleAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.CircleAnnotationOptions
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotation
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createCircleAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
+import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.launch
+import kotlin.math.pow
 
 
 @Composable
@@ -100,16 +115,8 @@ fun MainPage(
             style = { MapStyle(style = "mapbox://styles/miguelmartins27/cm4k61vj1007501si3wux1brp") }
         ) {
             MapEffect(Unit) { mapView ->
-                val resizedBitmap = resizeDrawable(
-                    context = mapView.context,
-                    drawableId = R.drawable.porter,
-                    width = 200,  // Set your desired width
-                    height = 200  // Set your desired height
-                )
                 mapView.location.updateSettings {
-                    locationPuck = LocationPuck2D(
-                        topImage = ImageHolder.from(resizedBitmap)
-                    )
+                    locationPuck = createDefault2DPuck(withBearing = true)
                     enabled = true
                     puckBearing = PuckBearing.COURSE
                     puckBearingEnabled = true
@@ -120,10 +127,8 @@ fun MainPage(
                 // Load and manage layers
                 addPostOfficesLayer(mapView)
                 addTimefallLayer(mapView)
+                addSignalsLayer(mapView)
                 addChiralNetworkLayer(mapView)
-                addSignalsLayer(mapView, SignalRepository().signalIcons)
-
-                addDangerAreasLayer(mapView) // Automatically add danger areas
             }
         }
 
@@ -156,76 +161,62 @@ fun MainPage(
     }
 }
 
-fun addPostOfficesLayer(mapView: MapView) {
-    val postOfficeRepository = PostOfficeRepository()
-    postOfficeRepository.fetchPostOffices { postOffices ->
-        mapView.getMapboxMap().getStyle { style ->
-            // Create an instance of the Annotation API and get the PointAnnotationManager
-            val annotationApi = mapView.annotations
-            val pointAnnotationManager = annotationApi.createPointAnnotationManager()
+@Composable
+fun InteractionUtilsLayerControl(
+    modifier: Modifier = Modifier,
+    mapView: MapView
+) {
+    var isTimefallLayerEnabled by remember { mutableStateOf(true) }
+    var isChiralNetworkLayerEnabled by remember { mutableStateOf(true) }
+    var isSignalsLayerEnabled by remember { mutableStateOf(true) }
 
-            // Create a bitmap for the marker icon
-            val originalBitmap = BitmapFactory.decodeResource(mapView.context.resources, R.drawable.postbox)
-            val width = originalBitmap.width / 8 // Reduce width by half
-            val height = originalBitmap.height / 8 // Reduce height by half
-            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, width, height, false)
-
-            postOffices.forEach { postOffice ->
-                // Set options for the resulting point annotation
-                val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
-                    // Define a geographic coordinate
-                    .withPoint(Point.fromLngLat(postOffice.longitude, postOffice.latitude))
-                    // Specify the bitmap you assigned to the point annotation
-                    .withIconImage(scaledBitmap)
-                    // Add the post office name as data to the annotation
-                    .withData(JsonObject().apply {
-                        addProperty("name", postOffice.name)
-                    })
-
-                // Add the resulting pointAnnotation to the map
-                pointAnnotationManager.create(pointAnnotationOptions)
+    Row(
+        modifier = modifier
+            .clip(
+                RoundedCornerShape(
+                    topStart = 16.dp,
+                    topEnd = 0.dp,
+                    bottomEnd = 0.dp,
+                    bottomStart = 16.dp
+                )
+            )
+            .background(Color(0xE64682B4))
+            .height(64.dp)
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Timefall Layer
+        IconToggleButton(
+            iconResId = R.drawable.umbrella,
+            contentDescription = "Toggle Timefall Layer",
+            onClick = {
+                isTimefallLayerEnabled = !isTimefallLayerEnabled
+                toggleAnnotation("Timefall", isTimefallLayerEnabled)
             }
-        }
-    }
-}
+        )
+        Spacer(modifier = Modifier.width(8.dp))
 
-fun addTimefallLayer(mapView: MapView) {
-    // Add logic to show dynamic timefall regions.
-    // Change region colors based on timefall intensity.
-}
-
-fun addChiralNetworkLayer(mapView: MapView) {
-    // Add logic to show dynamic chiral network regions.
-    // Change region colors based on delivery activity.
-}
-
-fun addSignalsLayer(mapView: MapView, signals: List<Int>) {
-    val signalRepository = SignalRepository()
-    signalRepository.fetchSignals { signals ->
-        mapView.getMapboxMap().getStyle { style ->
-            val annotationApi = mapView.annotations
-            val pointAnnotationManager = annotationApi.createPointAnnotationManager()
-
-            signals.forEach { signal ->
-                val iconResourceId = signal.iconResourceName.toInt()
-                if (iconResourceId != 0) { // Check if resource is found
-                    val originalBitmap = BitmapFactory.decodeResource(mapView.context.resources, iconResourceId)
-                    val width = originalBitmap.width / 8 // Reduce width by half
-                    val height = originalBitmap.height / 8 // Reduce height by half
-                    val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, width, height, false)
-                    val pointAnnotationOptions: PointAnnotationOptions = PointAnnotationOptions()
-                        .withPoint(Point.fromLngLat(signal.longitude, signal.latitude))
-                        .withIconImage(scaledBitmap)
-                        .withData(JsonObject().apply {
-                            addProperty("description", signal.description)
-                        })
-
-                    pointAnnotationManager.create(pointAnnotationOptions)
-                } else {
-                    Log.e("MyTag", "Icon resource not found for: ${signal.iconResourceName}")
-                }
+        // Chiral Network Layer
+        IconToggleButton(
+            iconResId = R.drawable.connections,
+            contentDescription = "Toggle Chiral Network Layer",
+            onClick = {
+                isChiralNetworkLayerEnabled = !isChiralNetworkLayerEnabled
+                toggleAnnotation("ChiralNetwork", isChiralNetworkLayerEnabled)
             }
-        }
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+
+        // Signals Layer
+        IconToggleButton(
+            iconResId = R.drawable.signals,
+            contentDescription = "Toggle Signals Layer",
+            onClick = {
+                isSignalsLayerEnabled = !isSignalsLayerEnabled
+                toggleAnnotation("Signals", isSignalsLayerEnabled)
+            }
+        )
     }
 }
 
@@ -277,7 +268,7 @@ fun InteractionUtils(modifier: Modifier = Modifier, latitude: Double, longitude:
             horizontalArrangement = Arrangement.Center
         ) {
             IconButton(
-                onClick = { openContacts() }
+                onClick = {  }
             ) {
                 Icon(
                     imageVector = Icons.Default.AddAlert,
@@ -299,7 +290,7 @@ fun InteractionUtils(modifier: Modifier = Modifier, latitude: Double, longitude:
             horizontalArrangement = Arrangement.Center
         ) {
             IconButton(
-                onClick = { requestHelp() }
+                onClick = { }
             ) {
                 Icon(
                     imageVector = Icons.Default.Bloodtype,
@@ -396,6 +387,333 @@ fun AddSignalDialog(
     }
 }
 
+
+private lateinit var postOfficeManager: PointAnnotationManager
+private val postOfficeAnnotations = mutableListOf<PointAnnotation>()
+
+private lateinit var ChiralNetworkManager: CircleAnnotationManager
+private val ChiralNetworkAnnotations = mutableListOf<CircleAnnotation>()
+
+private lateinit var signalManager: PointAnnotationManager
+private val signalAnnotations = mutableListOf<PointAnnotation>()
+
+private lateinit var timefallManager: CircleAnnotationManager
+private val timefallAnnotations = mutableListOf<CircleAnnotation>()
+
+fun addPostOfficesLayer(mapView: MapView) {
+    val postOfficeRepository = PostOfficeRepository()
+    postOfficeRepository.fetchPostOffices { postOffices ->
+        mapView.getMapboxMap().getStyle { style ->
+            val annotationApi = mapView.annotations
+            postOfficeManager = annotationApi.createPointAnnotationManager()
+
+            val originalBitmap = BitmapFactory.decodeResource(mapView.context.resources, R.drawable.postbox)
+            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, originalBitmap.width / 8, originalBitmap.height / 8, false)
+
+            postOffices.forEach { postOffice ->
+                val pointAnnotationOptions = PointAnnotationOptions()
+                    .withPoint(Point.fromLngLat(postOffice.longitude, postOffice.latitude))
+                    .withIconImage(scaledBitmap)
+                    .withData(JsonObject().apply { addProperty("name", postOffice.name) })
+
+                val annotation = postOfficeManager.create(pointAnnotationOptions)
+                postOfficeAnnotations.add(annotation)
+            }
+
+            // Listen for zoom level changes
+            mapView.getMapboxMap().addOnCameraChangeListener {
+                val currentZoom = mapView.getMapboxMap().cameraState.zoom
+
+                // Define the zoom range where the annotations should be visible
+                val shouldBeVisible = currentZoom >= 14.0 && currentZoom <= 18.0
+
+                // Update the opacity of annotations based on the zoom level
+                postOfficeAnnotations.forEach { annotation ->
+                    annotation.iconOpacity = if (shouldBeVisible) 1.0 else 0.0
+                    postOfficeManager.update(annotation)
+                }
+            }
+        }
+    }
+}
+
+fun addChiralNetworkLayer(mapView: MapView) {
+    val repository = DangerAreaRepository()
+    repository.fetchDangerAreas { areas ->
+        mapView.getMapboxMap().getStyle { style ->
+            val annotationApi = mapView.annotations
+            ChiralNetworkManager = annotationApi.createCircleAnnotationManager()
+
+            areas.forEach { area ->
+                val radiusInMeters = area.radius * 20
+                val dangerArea = CircleAnnotationOptions()
+                    .withPoint(Point.fromLngLat(area.longitude, area.latitude))
+                    .withCircleOpacity(0.5)
+                    .withCircleColor("#FF0000")
+                    .withCircleRadius(radiusInMeters)
+
+                val annotation = ChiralNetworkManager.create(dangerArea)
+                ChiralNetworkAnnotations.add(annotation)
+            }
+
+            // Add zoom change listener
+            mapView.getMapboxMap().addOnCameraChangeListener {
+                val currentZoom = mapView.getMapboxMap().cameraState.zoom
+
+                // Define the zoom range where the annotations should be visible
+                val shouldBeVisible = currentZoom >= 14.0 && currentZoom <= 18.0
+
+                // Update the opacity of annotations based on the zoom level
+                ChiralNetworkAnnotations.forEach { annotation ->
+                    annotation.circleOpacity = if (shouldBeVisible) 0.5 else 0.0
+                    ChiralNetworkManager.update(annotation)
+                }
+                areas.forEach { area ->
+                    val radiusInMeters = area.radius * 20
+                    val circle = ChiralNetworkAnnotations.find { it.point.latitude() == area.latitude && it.point.longitude() == area.longitude }
+                    if (circle != null) {
+                        val newRadius = radiusInMeters * 2.0.pow(currentZoom - 14.0)
+                        circle.circleRadius = newRadius
+                        ChiralNetworkManager.update(circle)
+                    }
+                }
+
+            }
+        }
+    }
+}
+
+fun addSignalsLayer(mapView: MapView) {
+    val signalRepository = SignalRepository()
+    signalRepository.fetchSignals { signals ->
+        mapView.getMapboxMap().getStyle { style ->
+            val annotationApi = mapView.annotations
+            signalManager = annotationApi.createPointAnnotationManager()
+
+            signals.forEach { signal ->
+                val iconResourceId = signal.iconResourceName.toInt()
+                if (iconResourceId != 0) {
+                    val originalBitmap = BitmapFactory.decodeResource(mapView.context.resources, iconResourceId)
+                    val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, originalBitmap.width / 8, originalBitmap.height / 8, false)
+                    val pointAnnotationOptions = PointAnnotationOptions()
+                        .withPoint(Point.fromLngLat(signal.longitude, signal.latitude))
+                        .withIconImage(scaledBitmap)
+                        .withData(JsonObject().apply {
+                            addProperty("description", signal.description)
+                        })
+
+                    val annotation = signalManager.create(pointAnnotationOptions)
+                    signalAnnotations.add(annotation)
+                } else {
+                    Log.e("MyTag", "Icon resource not found for: ${signal.iconResourceName}")
+                }
+            }
+
+            // Listen for zoom level changes
+            mapView.getMapboxMap().addOnCameraChangeListener {
+                val currentZoom = mapView.getMapboxMap().cameraState.zoom
+
+                // Define the zoom range where the annotations should be visible
+                val shouldBeVisible = currentZoom >= 14.0 && currentZoom <= 18.0
+
+                // Update the opacity of annotations based on the zoom level
+                signalAnnotations.forEach { annotation ->
+                    annotation.iconOpacity = if (shouldBeVisible) 1.0 else 0.0
+                    signalManager.update(annotation)
+                }
+            }
+        }
+    }
+}
+
+fun addTimefallLayer(mapView: MapView) {
+    // List of location names
+    val locations = listOf("California", "Lisboa", "Tokyo", "Cagliari")
+
+    // List of coordinates for each location
+    val locationCoordinates = listOf(
+        LocationPoint(38.8100, -9.2285), // North of Casal de Cambra (California)
+        LocationPoint(38.8009, -9.2150), // East of Casal de Cambra (Lisboa)
+        LocationPoint(38.7900, -9.2285), // South of Casal de Cambra (Tokyo)
+        LocationPoint(38.8009, -9.2420)  // West of Casal de Cambra (Cagliari)
+    )
+
+    val weatherInfoRepository = WeatherInfoRepository()
+
+    // Start a coroutine to run the weather data fetch concurrently
+    CoroutineScope(Dispatchers.Main).launch {
+        val deferredResults = locations.zip(locationCoordinates).map { (location, coordinates) ->
+            // Use async to run each weather fetch concurrently
+            async {
+                // Fetch weather data for the current location using location name and coordinates
+                weatherInfoRepository.fetchWeather({ weatherList ->
+                    mapView.getMapboxMap().getStyle { style ->
+                        val annotationApi = mapView.annotations
+                        timefallManager = annotationApi.createCircleAnnotationManager()
+
+                        weatherList.forEach { weather ->
+                            val point = Point.fromLngLat(coordinates.longitude, coordinates.latitude)
+                            val circleAnnotationOptions = CircleAnnotationOptions()
+                                .withPoint(point) // Use coordinates
+                                .withCircleRadius(60.0) // Set the radius of the circle
+                                .withCircleColor("#FF5733") // Set the color of the circle
+                                .withCircleOpacity(0.7) // Set the opacity of the circle
+                                .withData(JsonObject().apply {
+                                    addProperty("temperature", weather.temperature)
+                                    addProperty("condition", weather.condition)
+                                    addProperty("description", weather.description)
+                                    addProperty("latitude", weather.latitude)
+                                    addProperty("longitude", weather.longitude)
+                                })
+
+                            val annotation = timefallManager.create(circleAnnotationOptions)
+                            timefallAnnotations.add(annotation)
+                        }
+                    }
+                }, location, coordinates.latitude, coordinates.longitude) // Pass the location name and coordinates
+            }
+        }
+
+        // Wait for all async operations to complete
+        deferredResults.awaitAll()
+
+        // Listen for zoom level changes
+        mapView.getMapboxMap().addOnCameraChangeListener {
+            val currentZoom = mapView.getMapboxMap().cameraState.zoom
+            val shouldBeVisible = currentZoom >= 14.0 && currentZoom <= 18.0
+
+            timefallAnnotations.forEach { annotation ->
+                annotation.circleOpacity = if (shouldBeVisible) 0.7 else 0.0
+                timefallManager.update(annotation)
+            }
+        }
+    }
+}
+
+fun addTimefallLayer2(mapView: MapView) {
+    val locations = listOf("California", "Lisboa", "Tokyo", "Cagliari")
+    val locationKeys = mutableListOf<String>()
+    val weatherData = mutableListOf<WeatherInfo>()
+
+    // List of coordinates for each location
+    val locationCoordinates = listOf(
+        LocationPoint(38.8100, -9.2285), // North of Casal de Cambra (California)
+        LocationPoint(38.8009, -9.2150), // East of Casal de Cambra (Lisboa)
+        LocationPoint(38.7900, -9.2285), // South of Casal de Cambra (Tokyo)
+        LocationPoint(38.8009, -9.2420)  // West of Casal de Cambra (Cagliari)
+    )
+
+    val weatherInfoRepository = WeatherInfoRepository()
+
+    // Step 1: Retrieve location keys concurrently using async
+    CoroutineScope(Dispatchers.Main).launch {
+        val deferredLocationKeys = locations.map { location ->
+            async {
+                val locationKey = weatherInfoRepository.fetchLocationKey(location)
+                if (locationKey != null) {
+                    locationKey
+                } else {
+                    Log.e("WeatherLayer", "Location key not found for: $location")
+                    null
+                }
+            }
+        }
+
+        // Await the result of all async tasks and collect the location keys
+        deferredLocationKeys.awaitAll().forEach { locationKey ->
+            locationKey?.let { locationKeys.add(it) }
+        }
+
+        // Step 2: Fetch weather data concurrently for each location key
+        val deferredWeatherData = locationKeys.map { locationKey ->
+            async {
+                // Assuming you have a way to correlate location keys with coordinates, for example:
+                val coordinates = locationCoordinates.firstOrNull { location -> locationKey.contains(location.latitude.toString()) }
+                if (coordinates != null) {
+                    val weather = weatherInfoRepository.fetchWeatherData(locationKey, coordinates.latitude, coordinates.longitude)
+                    weather
+                } else {
+                    Log.e("WeatherLayer", "Coordinates not found for location key: $locationKey")
+                    null
+                }
+            }
+        }
+
+        // Await the result of all async tasks and collect the weather data
+        deferredWeatherData.awaitAll().forEach { weather ->
+            weather?.let { weatherData.add(it) }
+        }
+
+        // Step 3: Add weather data to map
+        addWeatherDataToMap(weatherData, mapView)
+    }
+}
+
+// Step 3: Add weather data to map
+private fun addWeatherDataToMap(weatherData: List<WeatherInfo>, mapView: MapView) {
+    mapView.getMapboxMap().getStyle { style ->
+        val annotationApi = mapView.annotations
+        timefallManager = annotationApi.createCircleAnnotationManager()
+
+        // Loop through all weather data and add annotations
+        weatherData.forEach { weatherInfo ->
+            // Use weatherInfo's latitude and longitude for positioning the point
+            val point = Point.fromLngLat(weatherInfo.longitude, weatherInfo.latitude)
+
+            // Create the CircleAnnotationOptions
+            val circleAnnotationOptions = CircleAnnotationOptions()
+                .withPoint(point) // Set the point for the annotation
+                .withCircleRadius(60.0) // Set the radius of the circle
+                .withCircleColor("#FF5733") // Set the color of the circle
+                .withCircleOpacity(0.7) // Set the opacity of the circle
+                .withData(JsonObject().apply {
+                    addProperty("description", weatherInfo.description ?: "No description")
+                    addProperty("temperature", weatherInfo.temperature)
+                    addProperty("condition", weatherInfo.condition)
+                    addProperty("latitude", weatherInfo.latitude)
+                    addProperty("longitude", weatherInfo.longitude)
+                })
+
+            // Create the circle annotation and add it to the manager
+            val circleAnnotation = timefallManager.create(circleAnnotationOptions)
+            timefallAnnotations.add(circleAnnotation)
+        }
+    }
+}
+
+
+
+fun toggleAnnotation(type: String, isVisible: Boolean) {
+    when (type) {
+        "ChiralNetwork" -> {
+            if (::ChiralNetworkManager.isInitialized) {
+                // Ensure ChiralNetworkAnnotations are initialized and updated properly
+                ChiralNetworkAnnotations.forEach { annotation ->
+                    // Toggle visibility based on the zoom level or the visibility flag
+                    annotation.circleOpacity = if (isVisible) 0.5 else 0.0
+                    ChiralNetworkManager.update(annotation)
+                }
+            } else {
+                Log.e("ChiralNetwork", "ChiralNetworkManager not initialized.")
+            }
+        }
+        "Signals" -> {
+            if (::signalManager.isInitialized) {
+                // Toggle signal annotations' visibility
+                signalAnnotations.forEach { annotation ->
+                    annotation.iconOpacity = if (isVisible) 1.0 else 0.0
+                    signalManager.update(annotation)
+                }
+            } else {
+                Log.e("Signals", "SignalManager not initialized.")
+            }
+        }
+        else -> {
+            Log.e("toggleAnnotation", "Unknown type: $type")
+        }
+    }
+}
+
 fun onAddSignal(icon: String, description: String, latitude: Double, longitude: Double) {
     val signal = Signal(
         iconResourceName = icon,
@@ -415,59 +733,6 @@ fun onAddSignal(icon: String, description: String, latitude: Double, longitude: 
 }
 
 
-
-
-@Composable
-fun InteractionUtilsLayerControl(
-    modifier: Modifier = Modifier,
-    mapView: MapView
-) {
-    var isChiralNetworkLayerEnabled by remember { mutableStateOf(false) }
-
-    Row(
-        modifier = modifier
-            .clip(
-                RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 0.dp,
-                    bottomEnd = 0.dp,
-                    bottomStart = 16.dp
-                )
-            )
-            .background(Color(0xE64682B4))
-            .height(64.dp)
-            .padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Timefall Layer
-        IconToggleButton(
-            iconResId = R.drawable.umbrella,
-            contentDescription = "Toggle Timefall Layer",
-            onClick = { toggleTimefallLayer() }
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-
-        // Chiral Network Layer
-        IconToggleButton(
-            iconResId = R.drawable.connections,
-            contentDescription = "Toggle Chiral Network Layer",
-            onClick = {
-                isChiralNetworkLayerEnabled = !isChiralNetworkLayerEnabled
-                toggleChiralNetworkLayer(mapView, isChiralNetworkLayerEnabled)
-            }
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-
-        // Signals Layer
-        IconToggleButton(
-            iconResId = R.drawable.signals,
-            contentDescription = "Toggle Signals Layer",
-            onClick = { toggleSignalsLayer() }
-        )
-    }
-}
-
 @Composable
 fun IconToggleButton(iconResId: Int, contentDescription: String, onClick: () -> Unit) {
     Box(
@@ -485,84 +750,11 @@ fun IconToggleButton(iconResId: Int, contentDescription: String, onClick: () -> 
     }
 }
 
-fun toggleTimefallLayer() {
-    // Toggle the visibility of the Timefall layer.
-}
-
-fun toggleChiralNetworkLayer(mapView: MapView, isEnabled: Boolean) {
-    val userLatitude = 38.7967
-    val userLongitude = -9.2337
-    val annotationApi = mapView.annotations
-
-    if (isEnabled) {
-        val circleAnnotationManager = annotationApi.createCircleAnnotationManager()
-
-        val radius = 200.0 // Radius in meters
-        val dangerArea = CircleAnnotationOptions()
-            .withPoint(Point.fromLngLat(userLongitude, userLatitude)) // Longitude first, then latitude
-            .withCircleRadius(radius)
-            .withCircleColor("#FF0000") // Bright red
-            .withCircleOpacity(0.5) // Semi-transparent
-
-        try {
-            circleAnnotationManager.create(dangerArea)
-            println("Successfully created danger area at ($userLatitude, $userLongitude)")
-        } catch (e: Exception) {
-            println("Error creating danger area: ${e.message}")
-        }
-    } else {
-        annotationApi.cleanup() // Removes all annotations, including circles
-        println("Danger area layer removed.")
-    }
-}
-
-fun addDangerAreasLayer(mapView: MapView) {
-    val annotationApi = mapView.annotations
-    val circleAnnotationManager = annotationApi.createCircleAnnotationManager()
-
-    val repository = DangerAreaRepository()
-    repository.fetchDangerAreas { areas ->
-        areas.forEach { area ->
-            val dangerArea = CircleAnnotationOptions()
-                .withPoint(Point.fromLngLat(area.longitude, area.latitude))
-                .withCircleRadius(area.radius / 10) // Adjust for display
-                .withCircleColor("#FF0000")
-                .withCircleOpacity(0.5)
-
-            try {
-                circleAnnotationManager.create(dangerArea)
-            } catch (e: Exception) {
-                Log.e("DangerAreaError", "Failed to create danger area: ${e.message}")
-            }
-        }
-    }
-}
-
-
-fun toggleSignalsLayer() {
-    // Toggle the visibility of the Signals layer.
-}
-
-
-// TODO Lógica de pedir ajuda de outros porters
-// Isso inclui enviar o pedido para porters nas proximidades; Criar um pop-up para estes;
-// Adicionar um icone ao mapa no local do porter que precisa de ajuda;
-// Apagar este icone e eliminar o pedido quando alguem se aproxima dentro de 50m (por exemplo)
-fun requestHelp() {
-    print("Requesting for help")
-}
-
-// TODO Lógica de contactos
-// Criar uma página que pode aparecer por cima desta com os porters e a distância a que estão
-fun openContacts() {
-    print("List of contacts")
-}
-
-fun resizeDrawable(context: Context, drawableId: Int, width: Int, height: Int): Bitmap {
-    val drawable: Drawable = ContextCompat.getDrawable(context, drawableId)!!
-    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
-    drawable.setBounds(0, 0, canvas.width, canvas.height)
-    drawable.draw(canvas)
-    return bitmap
-}
+data class LocationPoint(val latitude: Double, val longitude: Double)
+val locationPoint: List<LocationPoint> = listOf(
+    //LocationPoint(38.800988, -9.2285129), // Casal de Cambra
+    LocationPoint(38.8100, -9.2285),      // North of Casal de Cambra (Further)
+    LocationPoint(38.8009, -9.2150),      // East of Casal de Cambra (Further)
+    LocationPoint(38.7900, -9.2285),      // South of Casal de Cambra (Further)
+    LocationPoint(38.8009, -9.2420)       // West of Casal de Cambra (Further)
+)

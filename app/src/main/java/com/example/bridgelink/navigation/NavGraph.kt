@@ -24,6 +24,7 @@ import androidx.navigation.compose.composable
 import com.example.bridgelink.CargoManagement
 import com.example.bridgelink.ChiralNetworkMap
 import com.example.bridgelink.MainPage
+import com.example.bridgelink.NewDeliveryScreen
 import com.example.bridgelink.OdradekScanner
 import com.example.bridgelink.Profile
 import com.example.bridgelink.R
@@ -49,6 +50,9 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier, sh
         }
         composable (route = Screens.Profile.route) {
             Profile(navController = navController, signOut = signOut)
+        }
+        composable (route = Screens.NewDeliveryScreen.route) {
+            NewDeliveryScreen(navController = navController)
         }
         composable (route = Screens.MainPage.route) {
             MainPage(navController = navController, sharedViewModel = sharedViewModel)

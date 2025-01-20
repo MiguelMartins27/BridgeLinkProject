@@ -1,23 +1,49 @@
 package com.example.bridgelink
 
+import android.app.DatePickerDialog
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAlert
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bridgelink.users.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
+import java.util.Calendar
+
 
 class ProfileSetupActivity : ComponentActivity() {
 
@@ -30,33 +56,166 @@ class ProfileSetupActivity : ComponentActivity() {
 
     @Composable
     fun ProfileSetupScreen() {
-        val name by remember { mutableStateOf("") }
-        val bloodType by remember { mutableStateOf("") }
-        val height by remember { mutableStateOf("") }
-        val weight by remember { mutableStateOf("") }
-        val deliveries by remember { mutableStateOf("") }
-        val distanceWalked by remember { mutableStateOf("") }
-        val timefallExposure by remember { mutableStateOf("") }
-        val dob by remember { mutableStateOf("") }
+        // State variables for input fields
+        var name by remember { mutableStateOf("") }
+        var bloodType by remember { mutableStateOf("") }
+        var height by remember { mutableStateOf("") }
+        var weight by remember { mutableStateOf("") }
+        var dob by remember { mutableStateOf("") }
+        val photoUrl by remember { mutableStateOf("") }
+        var selectedPhotoResourceId by remember { mutableStateOf<Int?>(null) }
 
-        // Image for profile (using resource as Int)
-        var photoUrl by remember { mutableStateOf(0) }
+        val context = LocalContext.current  // Get context for Toast
+
+        // Color values from your resources
+        val backgroundColor = colorResource(id = R.color.navy_blue) // Navy Blue Background
+        val textColor = colorResource(id = R.color.white) // White text
+        val inputFieldColor = colorResource(id = R.color.home_grey) // Light Grey background for inputs
+        val buttonColor = colorResource(id = R.color.blue) // Blue button color
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .background(backgroundColor), // Navy blue background
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Complete your profile",
-                style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Image(
+                painter = painterResource(id = R.drawable.no_bg),
+                contentDescription = "App Logo",
+                modifier = Modifier
+                    .size(150.dp)
+                    .padding(bottom = 32.dp)
             )
 
+            Text(
+                text = "Welcome to BridgeLink",
+                style = TextStyle(color = Color.White, fontSize = 24.sp),
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
 
-            Button(onClick = { saveUserProfile(name, bloodType, height, weight, deliveries, distanceWalked, timefallExposure, dob, photoUrl) }) {
-                Text("Save Profile")
+            Text(
+                text = "Complete your profile",
+                style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor),
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+
+            // Name input field
+            TextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Name", color = Color.Black) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .background(inputFieldColor)
+            )
+
+            // Blood Type input field
+            TextField(
+                value = bloodType,
+                onValueChange = { bloodType = it },
+                label = { Text("Blood Type") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .background(inputFieldColor)
+            )
+
+            // Height input field (only numbers allowed)
+            TextField(
+                value = height,
+                onValueChange = {
+                    if (it.all { char -> char.isDigit() }) {
+                        height = it
+                    } else {
+                        Toast.makeText(context, "Please enter a valid height", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                label = { Text("Height (cm)", color = Color.Black) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .background(inputFieldColor)
+            )
+
+            // Weight input field (only numbers allowed)
+            TextField(
+                value = weight,
+                onValueChange = {
+                    if (it.all { char -> char.isDigit() }) {
+                        weight = it
+                    } else {
+                        Toast.makeText(context, "Please enter a valid weight", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                label = { Text("Weight (kg)", color = Color.Black) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .background(inputFieldColor)
+            )
+
+            // Date of Birth input field
+            TextField(
+                value = dob,
+                onValueChange = { dob = it },
+                label = { Text("Date of Birth") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .background(inputFieldColor)
+            )
+
+            // Profile Photo URL field (Optional, Horizontal Scroll for Image selection)
+            ProfilePhotoSelectionField(
+                selectedPhoto = selectedPhotoResourceId
+            ) { selectedResourceId ->
+                selectedPhotoResourceId = selectedResourceId
+            }
+
+            // Save button with contrast
+            Button(
+                onClick = { saveUserProfile(name, bloodType, height, weight, dob, photoUrl) },
+                colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
+                modifier = Modifier.padding(top = 16.dp)
+            ) {
+                Text("Save Profile", color = Color.White) // White text for better contrast on button
+            }
+        }
+    }
+
+    @Composable
+    fun ProfilePhotoSelectionField(
+        selectedPhoto: Int?,
+        onPhotoSelected: (Int) -> Unit
+    ) {
+        val scrollState = rememberScrollState()
+        val photos = listOf(
+            R.drawable.eliseu,
+            R.drawable.porter,
+            // Add more drawable resources here
+        )
+
+        Row(
+            modifier = Modifier
+                .horizontalScroll(scrollState)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            photos.forEach { photo ->
+                Image(
+                    painter = painterResource(id = photo),
+                    contentDescription = "Profile Photo Icon",
+                    modifier = Modifier
+                        .size(50.dp)
+                        .border(
+                            width = 2.dp,
+                            color = if (selectedPhoto == photo) Color.Blue else Color.Transparent,
+                            shape = CircleShape
+                        )
+                        .clickable { onPhotoSelected(photo) }
+                )
             }
         }
     }
@@ -66,11 +225,8 @@ class ProfileSetupActivity : ComponentActivity() {
         bloodType: String,
         height: String,
         weight: String,
-        deliveries: String,
-        distanceWalked: String,
-        timefallExposure: String,
         dob: String,
-        photoUrl: Int
+        photoUrl: String
     ) {
         val user = FirebaseAuth.getInstance().currentUser
         val userId = user?.uid
@@ -81,9 +237,9 @@ class ProfileSetupActivity : ComponentActivity() {
                 bloodType,
                 height,
                 weight,
-                deliveries,
-                distanceWalked,
-                timefallExposure,
+                0, // Replace with actual values for user's blood pressure, cholesterol, etc.
+                0,
+                0,
                 dob,
                 photoUrl
             )

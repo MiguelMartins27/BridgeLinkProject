@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,8 +25,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAlert
 import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.Bloodtype
@@ -144,6 +147,27 @@ fun MainPage(
                 contentDescription = "Floating Image Button"
             )
         }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 20.dp, bottom = 26.dp)
+                .size(56.dp)
+                .clickable {
+                    // Action when clicked
+                    Toast.makeText(navController.context, "Plus Button Clicked", Toast.LENGTH_SHORT).show()
+                }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add, // Using the Material Icons for the plus sign
+                contentDescription = "Add",
+                tint = Color.White,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(52.dp)
+            )
+        }
+
         InteractionUtils(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -199,7 +223,7 @@ fun InteractionUtilsLayerControl(
 
         // Chiral Network Layer
         IconToggleButton(
-            iconResId = R.drawable.connections,
+            iconResId = R.drawable.signals,
             contentDescription = "Toggle Chiral Network Layer",
             onClick = {
                 isChiralNetworkLayerEnabled = !isChiralNetworkLayerEnabled
@@ -210,7 +234,7 @@ fun InteractionUtilsLayerControl(
 
         // Signals Layer
         IconToggleButton(
-            iconResId = R.drawable.signals,
+            iconResId = R.drawable.ds_signs_trouble,
             contentDescription = "Toggle Signals Layer",
             onClick = {
                 isSignalsLayerEnabled = !isSignalsLayerEnabled
@@ -238,7 +262,6 @@ fun InteractionUtils(modifier: Modifier = Modifier, latitude: Double, longitude:
             .background(Color(0xE64682B4))
             .height(200.dp) // Reduced height
     ) {
-        // See connections
         Row(
             modifier = Modifier
                 .weight(1f)
@@ -260,7 +283,6 @@ fun InteractionUtils(modifier: Modifier = Modifier, latitude: Double, longitude:
             }
         }
 
-        // Add a Reaction
         Row(
             modifier = Modifier
                 .padding(horizontal = 4.dp), // Reduced padding
@@ -281,7 +303,6 @@ fun InteractionUtils(modifier: Modifier = Modifier, latitude: Double, longitude:
             }
         }
 
-        // Ask for help
         Row(
             modifier = Modifier
                 .weight(1f)
@@ -397,8 +418,8 @@ private val ChiralNetworkAnnotations = mutableListOf<CircleAnnotation>()
 private lateinit var signalManager: PointAnnotationManager
 private val signalAnnotations = mutableListOf<PointAnnotation>()
 
-private lateinit var timefallManager: CircleAnnotationManager
-private val timefallAnnotations = mutableListOf<CircleAnnotation>()
+private lateinit var timefallManager: PointAnnotationManager
+private val timefallAnnotations = mutableListOf<PointAnnotation>()
 
 fun addPostOfficesLayer(mapView: MapView) {
     val postOfficeRepository = PostOfficeRepository()
@@ -549,15 +570,16 @@ fun addTimefallLayer(mapView: MapView) {
                 weatherInfoRepository.fetchWeather({ weatherList ->
                     mapView.getMapboxMap().getStyle { style ->
                         val annotationApi = mapView.annotations
-                        timefallManager = annotationApi.createCircleAnnotationManager()
+                        timefallManager = annotationApi.createPointAnnotationManager()
 
                         weatherList.forEach { weather ->
+                            val iconResourceId = weather.iconResourceId
+                            val originalBitmap = BitmapFactory.decodeResource(mapView.context.resources, iconResourceId)
+                            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, originalBitmap.width / 8, originalBitmap.height / 8, false)
                             val point = Point.fromLngLat(coordinates.longitude, coordinates.latitude)
-                            val circleAnnotationOptions = CircleAnnotationOptions()
+                            val pointAnnotationOptions = PointAnnotationOptions()
                                 .withPoint(point) // Use coordinates
-                                .withCircleRadius(60.0) // Set the radius of the circle
-                                .withCircleColor("#FF5733") // Set the color of the circle
-                                .withCircleOpacity(0.7) // Set the opacity of the circle
+                                .withIconImage(scaledBitmap)
                                 .withData(JsonObject().apply {
                                     addProperty("temperature", weather.temperature)
                                     addProperty("condition", weather.condition)
@@ -566,7 +588,7 @@ fun addTimefallLayer(mapView: MapView) {
                                     addProperty("longitude", weather.longitude)
                                 })
 
-                            val annotation = timefallManager.create(circleAnnotationOptions)
+                            val annotation = timefallManager.create(pointAnnotationOptions)
                             timefallAnnotations.add(annotation)
                         }
                     }
@@ -580,11 +602,14 @@ fun addTimefallLayer(mapView: MapView) {
         // Listen for zoom level changes
         mapView.getMapboxMap().addOnCameraChangeListener {
             val currentZoom = mapView.getMapboxMap().cameraState.zoom
+
+            // Define the zoom range where the annotations should be visible
             val shouldBeVisible = currentZoom >= 14.0 && currentZoom <= 18.0
 
-            timefallAnnotations.forEach { annotation ->
-                annotation.circleOpacity = if (shouldBeVisible) 0.7 else 0.0
-                timefallManager.update(annotation)
+            // Update the opacity of annotations based on the zoom level
+            signalAnnotations.forEach { annotation ->
+                annotation.iconOpacity = if (shouldBeVisible) 1.0 else 0.0
+                signalManager.update(annotation)
             }
         }
     }
@@ -653,19 +678,22 @@ fun addTimefallLayer2(mapView: MapView) {
 private fun addWeatherDataToMap(weatherData: List<WeatherInfo>, mapView: MapView) {
     mapView.getMapboxMap().getStyle { style ->
         val annotationApi = mapView.annotations
-        timefallManager = annotationApi.createCircleAnnotationManager()
+        timefallManager = annotationApi.createPointAnnotationManager()  // Use PointAnnotationManager for icons
 
         // Loop through all weather data and add annotations
         weatherData.forEach { weatherInfo ->
             // Use weatherInfo's latitude and longitude for positioning the point
             val point = Point.fromLngLat(weatherInfo.longitude, weatherInfo.latitude)
 
-            // Create the CircleAnnotationOptions
-            val circleAnnotationOptions = CircleAnnotationOptions()
+            // Fetch the appropriate icon based on weather condition
+            val iconResourceId = weatherInfo.iconResourceId
+            val originalBitmap = BitmapFactory.decodeResource(mapView.context.resources, iconResourceId)
+            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, originalBitmap.width / 8, originalBitmap.height / 8, false)
+
+            // Create the PointAnnotationOptions
+            val pointAnnotationOptions = PointAnnotationOptions()
                 .withPoint(point) // Set the point for the annotation
-                .withCircleRadius(60.0) // Set the radius of the circle
-                .withCircleColor("#FF5733") // Set the color of the circle
-                .withCircleOpacity(0.7) // Set the opacity of the circle
+                .withIconImage(scaledBitmap) // Set the icon image (scaled bitmap)
                 .withData(JsonObject().apply {
                     addProperty("description", weatherInfo.description ?: "No description")
                     addProperty("temperature", weatherInfo.temperature)
@@ -674,9 +702,9 @@ private fun addWeatherDataToMap(weatherData: List<WeatherInfo>, mapView: MapView
                     addProperty("longitude", weatherInfo.longitude)
                 })
 
-            // Create the circle annotation and add it to the manager
-            val circleAnnotation = timefallManager.create(circleAnnotationOptions)
-            timefallAnnotations.add(circleAnnotation)
+            // Create the point annotation and add it to the manager
+            val pointAnnotation = timefallManager.create(pointAnnotationOptions)
+            timefallAnnotations.add(pointAnnotation)
         }
     }
 }

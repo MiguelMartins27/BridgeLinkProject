@@ -7,5 +7,5 @@ sealed class Screens(val route: String) {
     object Profile : Screens("profile")
     object MainPage : Screens("main_page")
     object SecondMainPage : Screens("second_main_page")
-    object SignIn : Screens("sign_in")
+    object NewDeliveryScreen : Screens("new_delivery_screen")
 }

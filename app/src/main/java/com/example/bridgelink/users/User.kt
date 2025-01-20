@@ -5,9 +5,9 @@ data class User(
     val bloodType: String,
     val height: String,
     val weight: String,
-    val deliveries: String,
-    val distanceWalked: String,
-    val timefallExposure: String,
+    val deliveries: Int,
+    val distanceWalked: Int,
+    val timefallExposure: Int,
     val dob: String,
-    val photoUrl: Int
+    val photoUrl: String
 )

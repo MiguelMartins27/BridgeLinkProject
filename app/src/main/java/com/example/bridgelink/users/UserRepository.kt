@@ -19,17 +19,17 @@ class UserRepository {
                     val bloodType = snapshot.child("bloodType").getValue(String::class.java) ?: ""
                     val height = snapshot.child("height").getValue(String::class.java) ?: ""
                     val weight = snapshot.child("weight").getValue(String::class.java) ?: ""
-                    val deliveries = snapshot.child("deliveries").getValue(String::class.java) ?: ""
-                    val distanceWalked = snapshot.child("distanceWalked").getValue(String::class.java) ?: ""
-                    val timefallExposure = snapshot.child("timefallExposure").getValue(String::class.java) ?: ""
+                    val deliveries = snapshot.child("deliveries").getValue(Int::class.java) ?: 0
+                    val distanceWalked = snapshot.child("distanceWalked").getValue(Int::class.java) ?: 0
+                    val timefallExposure = snapshot.child("timefallExposure").getValue(Int::class.java) ?: 0
                     val dob = snapshot.child("dob").getValue(String::class.java) ?: ""
-                    val photoUrl = snapshot.child("photoUrl").getValue(Int::class.java) ?: R.drawable.eliseu
+                    val photoUrl = snapshot.child("photoUrl").getValue(String::class.java) ?: ""
 
                     // Create a User object
                     val user = User(name, bloodType, height, weight, deliveries, distanceWalked, timefallExposure, dob, photoUrl)
                     onDataFetched(user)
                 } else {
-                    onDataFetched(null) // No data for the user
+                    onDataFetched(null)
                 }
             }
 

@@ -20,9 +20,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.bridgelink.navigation.Screens
 import com.example.bridgelink.users.User
-import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun Profile(navController: NavController, signOut: () -> Unit, modifier: Modifier = Modifier) {
@@ -127,7 +125,7 @@ fun ProfileInfo(userData: User, modifier: Modifier = Modifier) {
                 horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    text = userData.deliveries,
+                    text = "${userData.deliveries}",
                     color = Color.White,
                     fontSize = 20.sp
                 )

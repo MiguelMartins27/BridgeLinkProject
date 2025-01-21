@@ -14,19 +14,17 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddAlert
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material3.AlertDialog
+
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
+
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,13 +34,11 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bridgelink.users.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
-import java.util.Calendar
 
 
 class ProfileSetupActivity : ComponentActivity() {
@@ -112,14 +108,8 @@ class ProfileSetupActivity : ComponentActivity() {
             )
 
             // Blood Type input field
-            TextField(
-                value = bloodType,
-                onValueChange = { bloodType = it },
-                label = { Text("Blood Type") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
-                    .background(inputFieldColor)
+            Dropdown(
+                list = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"),
             )
 
             // Height input field (only numbers allowed)
@@ -181,6 +171,46 @@ class ProfileSetupActivity : ComponentActivity() {
                 modifier = Modifier.padding(top = 16.dp)
             ) {
                 Text("Save Profile", color = Color.White) // White text for better contrast on button
+            }
+        }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    fun Dropdown(
+        list: List<String>,
+    ) {
+        var selectedText by remember { mutableStateOf(list[0]) }
+        var isExpanded by remember { mutableStateOf(false) }
+
+        ExposedDropdownMenuBox(
+            expanded = isExpanded,
+            onExpandedChange = { isExpanded = !isExpanded },
+        ) {
+            TextField(
+                value = selectedText,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = isExpanded)
+                },
+                modifier = Modifier.menuAnchor()
+            )
+
+            ExposedDropdownMenu(
+                expanded = isExpanded,
+                onDismissRequest = { isExpanded = false }
+            ) {
+                list.forEach { text ->
+                    DropdownMenuItem(
+                        text = { Text(text = text) },
+                        onClick = {
+                            selectedText = text
+                            isExpanded = false
+                        },
+                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                    )
+                }
             }
         }
     }

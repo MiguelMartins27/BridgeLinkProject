@@ -1,15 +1,21 @@
 package com.example.bridgelink
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.example.bridgelink.navigation.NavGraph
 import com.example.bridgelink.ui.theme.BridgeLinkTheme
@@ -21,6 +27,7 @@ import com.mapbox.maps.MapView
 import com.mapbox.maps.plugin.locationcomponent.LocationComponentPlugin
 import com.mapbox.maps.plugin.locationcomponent.location
 
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var permissionsManager: PermissionsManager
@@ -28,14 +35,14 @@ class MainActivity : ComponentActivity() {
     var longitude: Double = 0.0
     var latitude: Double = 0.0
     private val viewModel: SharedViewModel by viewModels()
-    // Firebase instance variables
     private lateinit var auth: FirebaseAuth
+    private lateinit var captureImageLauncher: ActivityResultLauncher<Uri>
+    private lateinit var imageUri: Uri
+    private val CAMERA_PERMISSION_REQUEST_CODE = 1001
 
     // Define the PermissionsListener for Mapbox location permissions
     private val permissionsListener: PermissionsListener = object : PermissionsListener {
         override fun onExplanationNeeded(permissionsToExplain: List<String>) {
-            // This is where you can explain to the user why you need the permission
-            // For example, show a message explaining the need for location access
             Toast.makeText(
                 applicationContext,
                 "Location permission is required for the map functionality",
@@ -45,11 +52,9 @@ class MainActivity : ComponentActivity() {
 
         override fun onPermissionResult(granted: Boolean) {
             if (granted) {
-                // Permission granted, proceed with location-sensitive logic
                 Toast.makeText(applicationContext, "Location permission granted", Toast.LENGTH_SHORT).show()
-                // Activate Maps SDK LocationComponent here, or any other logic
+                enableLocationComponent()
             } else {
-                // Permission denied, handle this case
                 Toast.makeText(applicationContext, "Location permission denied", Toast.LENGTH_SHORT).show()
             }
         }
@@ -61,33 +66,42 @@ class MainActivity : ComponentActivity() {
         // Initialize Firebase Auth and check if the user is signed in
         auth = FirebaseAuth.getInstance()
         if (auth.currentUser == null) {
-            // Not signed in, launch the Sign In activity
             startActivity(Intent(this, SignInActivity::class.java))
             finish()
             return
         }
 
+        // Initialize MapView
         mapView = MapView(this)
-        if (this::mapView.isInitialized) {
-            mapView.getMapboxMap().loadStyleUri("mapbox://styles/miguelmartins27/cm4k61vj1007501si3wux1brp") {
-                enableLocationComponent()
-            }
+        setContentView(mapView)  // Add map view to layout
+
+        // Load the map style
+        mapView.getMapboxMap().loadStyleUri("mapbox://styles/miguelmartins27/cm4k61vj1007501si3wux1brp") {
+            enableLocationComponent()
         }
 
-        // Initialize Firebase
-        // FirebaseApp.initializeApp(this)
-        // Initialize PermissionsManager with the current activity context
+        // Initialize the permissions manager
         permissionsManager = PermissionsManager(permissionsListener)
 
-        // Check if location permissions are granted
+        // Check for location permissions and request if necessary
         if (PermissionsManager.areLocationPermissionsGranted(this)) {
-            // Proceed with location-sensitive logic
-            Toast.makeText(applicationContext, "Location permissions are granted", Toast.LENGTH_SHORT).show()
+            enableLocationComponent()
         } else {
-            // Request the location permissions
             permissionsManager.requestLocationPermissions(this)
         }
 
+        // Handle camera permission
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.CAMERA),
+                CAMERA_PERMISSION_REQUEST_CODE
+            )
+        } else {
+            Toast.makeText(applicationContext, "Camera permission already granted", Toast.LENGTH_SHORT).show()
+        }
+
+        // Set up content using Jetpack Compose
         setContent {
             BridgeLinkTheme {
                 val navController = rememberNavController()
@@ -96,9 +110,7 @@ class MainActivity : ComponentActivity() {
                         navController = navController,
                         modifier = Modifier.padding(innerPadding),
                         sharedViewModel = viewModel,
-                        signOut = {
-                            signOutUser()
-                        }
+                        signOut = { signOutUser() }
                     )
                 }
             }
@@ -117,36 +129,39 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    public override fun onStart() {
-        super.onStart()
-        // Check if user is signed in.
-        if (auth.currentUser == null) {
-            // Not signed in, launch the Sign In activity
-            startActivity(Intent(this, SignInActivity::class.java))
-            finish()
-            return
+    // Handle the result of the camera permission request
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(applicationContext, "Camera permission granted", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(applicationContext, "Camera permission is required", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
-    private fun getPhotoUrl(): String? {
-        val user = auth.currentUser
-        return user?.photoUrl?.toString()
-    }
-
-    private fun getUserName(): String? {
-        val user = auth.currentUser
-        return if (user != null) {
-            user.displayName
-        } else ANONYMOUS
+    override fun onStart() {
+        super.onStart()
+        if (auth.currentUser == null) {
+            startActivity(Intent(this, SignInActivity::class.java))
+            finish()
+        }
     }
 
     private fun signOutUser() {
         auth.signOut()
-        // Navigate to SignInActivity after sign-out
         val intent = Intent(this, SignInActivity::class.java)
         startActivity(intent)
-        finish()  // Close MainActivity to avoid returning to it after sign-out
+        finish()
     }
+
+
 
     companion object {
         const val ANONYMOUS = "anonymous"

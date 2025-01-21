@@ -1,13 +1,9 @@
 package com.example.bridgelink
 
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.drawable.Drawable
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -42,7 +37,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -55,9 +49,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
-import com.example.bridgelink.danger.area.DangerArea
 import com.example.bridgelink.danger.area.DangerAreaRepository
 import com.example.bridgelink.navigation.Screens
 import com.example.bridgelink.post.office.PostOfficeRepository
@@ -68,14 +60,11 @@ import com.example.bridgelink.weatherinfo.WeatherInfo
 import com.example.bridgelink.weatherinfo.WeatherInfoRepository
 import com.google.gson.JsonObject
 import com.mapbox.geojson.Point
-import com.mapbox.maps.ImageHolder
 import com.mapbox.maps.MapView
 import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
 import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
 import com.mapbox.maps.extension.compose.style.MapStyle
-import com.mapbox.maps.extension.style.expressions.generated.Expression
-import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.PuckBearing
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.CircleAnnotation
@@ -99,13 +88,11 @@ import kotlin.math.pow
 @Composable
 fun MainPage(
     navController: NavController,
-    modifier: Modifier = Modifier,
     sharedViewModel: SharedViewModel
 ) {
     val locationState = sharedViewModel.location.collectAsState()
     val (latitude, longitude) = locationState.value
     val mapViewportState = rememberMapViewportState()
-    val mapView = remember { MapView(navController.context) }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -154,8 +141,7 @@ fun MainPage(
                 .padding(start = 20.dp, bottom = 26.dp)
                 .size(56.dp)
                 .clickable {
-                    // Action when clicked
-                    Toast.makeText(navController.context, "Plus Button Clicked", Toast.LENGTH_SHORT).show()
+                    navController.navigate(Screens.NewDeliveryScreen.route)
                 }
         ) {
             Icon(
@@ -180,7 +166,6 @@ fun MainPage(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .offset(y = (-28).dp),
-            mapView = mapView
         )
     }
 }
@@ -188,7 +173,6 @@ fun MainPage(
 @Composable
 fun InteractionUtilsLayerControl(
     modifier: Modifier = Modifier,
-    mapView: MapView
 ) {
     var isTimefallLayerEnabled by remember { mutableStateOf(true) }
     var isChiralNetworkLayerEnabled by remember { mutableStateOf(true) }

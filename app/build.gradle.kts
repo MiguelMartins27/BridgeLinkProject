@@ -74,9 +74,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material:material-icons-extended:1.5.4")
+    implementation("io.coil-kt:coil-compose:2.1.0")
     //Navigation
     implementation("androidx.navigation:navigation-compose:2.8.4")
-
     implementation("com.mapbox.maps:android:11.9.0")
     implementation("com.mapbox.extension:maps-compose:11.9.0")
     // Google Sign In SDK
@@ -96,4 +96,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("com.squareup.okhttp3:logging-interceptor:4.9.3")
 
+    implementation("com.github.bumptech.glide:glide:4.14.2")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.14.2")
 }

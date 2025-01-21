@@ -8,4 +8,5 @@ sealed class Screens(val route: String) {
     object MainPage : Screens("main_page")
     object SecondMainPage : Screens("second_main_page")
     object NewDeliveryScreen : Screens("new_delivery_screen")
+    object TraceRoute : Screens("trace_route")
 }

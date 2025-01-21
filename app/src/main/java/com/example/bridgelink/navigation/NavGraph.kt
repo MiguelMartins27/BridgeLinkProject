@@ -29,6 +29,7 @@ import com.example.bridgelink.OdradekScanner
 import com.example.bridgelink.Profile
 import com.example.bridgelink.R
 import com.example.bridgelink.SecondMainPage
+import com.example.bridgelink.TraceRoute
 import com.example.bridgelink.utils.SharedViewModel
 
 
@@ -36,7 +37,7 @@ import com.example.bridgelink.utils.SharedViewModel
 fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier, sharedViewModel: SharedViewModel, signOut: () -> Unit) {
     NavHost(
         navController = navController,
-        startDestination = Screens.MainPage.route,
+        startDestination = Screens.TraceRoute.route,
         modifier = modifier
     ) {
         composable (route = Screens.CargoManagement.route) {
@@ -59,6 +60,9 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier, sh
         }
         composable (route = Screens.SecondMainPage.route) {
             SecondMainPage(navController = navController)
+        }
+        composable (route = Screens.TraceRoute.route){
+            TraceRoute(navController = navController)
         }
     }
 }

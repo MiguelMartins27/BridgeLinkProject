@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import com.example.bridgelink.navigation.Screens
 import com.example.bridgelink.utils.RouteViewModel
+import com.example.bridgelink.weatherinfo.WeatherInfoRepository
 import com.google.android.gms.maps.model.LatLng
 import com.mapbox.geojson.Feature
 import com.mapbox.geojson.FeatureCollection
@@ -31,7 +32,6 @@ import com.mapbox.maps.extension.style.sources.generated.GeoJsonSource
 import com.mapbox.maps.extension.style.sources.getSourceAs
 import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.location
-import com.mapbox.maps.MapboxMap
 
 
 @Composable
@@ -55,7 +55,7 @@ fun TraceRoute(navController: NavController, routeViewModel: RouteViewModel) {
             addPostOfficesLayer(mapView)
             addTimefallLayer(mapView)
             addSignalsLayer(mapView)
-            addChiralNetworkLayer(mapView)
+            addWeatherBasedDangerLayer(mapView)
 
             mapView.gestures.addOnMapClickListener { point ->
                 val latLng = LatLng(point.latitude(), point.longitude())

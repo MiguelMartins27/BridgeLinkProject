@@ -37,10 +37,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +63,10 @@ import com.example.bridgelink.utils.RouteViewModel
 import com.example.bridgelink.utils.SharedViewModel
 import com.example.bridgelink.weatherinfo.WeatherInfo
 import com.example.bridgelink.weatherinfo.WeatherInfoRepository
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import com.google.gson.JsonObject
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
@@ -89,6 +95,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.pow
 
@@ -104,6 +111,25 @@ fun MainPage(
     val mapViewportState = rememberMapViewportState()
     val routes = routeViewModel.routes.value
     var mapView by remember { mutableStateOf<MapView?>(null) }
+
+    // Coroutine job to periodically refresh weather data
+    val fetchJob = rememberUpdatedState {
+        // Create a coroutine that fetches the weather data every minute
+        CoroutineScope(Dispatchers.Main).launch {
+            while (true) {
+                mapView?.let { map ->
+                    // Fetch and update weather data every minute
+                    addTimefallLayer(map)
+                }
+                delay(60000) // Wait for 1 minute (60000ms)
+            }
+        }
+    }
+
+    // Initial weather fetch when the page loads
+    LaunchedEffect(mapView) {
+        fetchJob.value.invoke() // Start periodic fetching when the page is first launched
+    }
 
     Box(
         modifier = Modifier
@@ -127,9 +153,8 @@ fun MainPage(
                 mapViewportState.transitionToFollowPuckState()
 
                 addPostOfficesLayer(map)
-                addTimefallLayer(map)
                 addSignalsLayer(map)
-                addChiralNetworkLayer(map)
+                addWeatherBasedDangerLayer(map)
 
                 routes.forEachIndexed { index, route ->
                     val lineString = LineString.fromLngLats(route.map { Point.fromLngLat(it.longitude, it.latitude) })
@@ -237,6 +262,7 @@ fun MainPage(
         )
     }
 }
+
 
 @Composable
 fun InteractionUtilsLayerControl(
@@ -459,7 +485,7 @@ private val timefallAnnotations = mutableListOf<PointAnnotation>()
 fun addPostOfficesLayer(mapView: MapView) {
     val postOfficeRepository = PostOfficeRepository()
     postOfficeRepository.fetchPostOffices { postOffices ->
-        mapView.getMapboxMap().getStyle {
+        mapView.mapboxMap.getStyle {
             val annotationApi = mapView.annotations
             postOfficeManager = annotationApi.createPointAnnotationManager()
 
@@ -477,7 +503,7 @@ fun addPostOfficesLayer(mapView: MapView) {
             }
 
             // Listen for zoom level changes
-            mapView.getMapboxMap().addOnCameraChangeListener {
+            mapView.mapboxMap.addOnCameraChangeListener {
                 val currentZoom = mapView.getMapboxMap().cameraState.zoom
 
                 // Define the zoom range where the annotations should be visible
@@ -493,56 +519,79 @@ fun addPostOfficesLayer(mapView: MapView) {
     }
 }
 
-fun addChiralNetworkLayer(mapView: MapView) {
-    val repository = DangerAreaRepository()
-    repository.fetchDangerAreas { areas ->
-        mapView.getMapboxMap().getStyle {
-            val annotationApi = mapView.annotations
-            ChiralNetworkManager = annotationApi.createCircleAnnotationManager()
+fun addWeatherBasedDangerLayer(mapView: MapView) {
+    mapView.mapboxMap.getStyle { style ->
+        val annotationApi = mapView.annotations
+        ChiralNetworkManager = annotationApi.createCircleAnnotationManager()
 
-            areas.forEach { area ->
-                val radiusInMeters = area.radius * 20
-                val dangerArea = CircleAnnotationOptions()
-                    .withPoint(Point.fromLngLat(area.longitude, area.latitude))
-                    .withCircleOpacity(0.5)
-                    .withCircleColor("#FF0000")
-                    .withCircleRadius(radiusInMeters)
+        // Reference to Firebase
+        val weatherRef = FirebaseDatabase.getInstance().reference.child("weatherCurrentInApp")
 
-                val annotation = ChiralNetworkManager.create(dangerArea)
-                ChiralNetworkAnnotations.add(annotation)
-            }
+        weatherRef.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                // Clear existing annotations
+                ChiralNetworkAnnotations.clear()
+                ChiralNetworkManager.deleteAll()
 
-            // Add zoom change listener
-            mapView.getMapboxMap().addOnCameraChangeListener {
-                val currentZoom = mapView.getMapboxMap().cameraState.zoom
+                // Iterate through each location in Firebase
+                snapshot.children.forEach { locationSnapshot ->
+                    val condition = locationSnapshot.child("condition").getValue(String::class.java) ?: ""
+                    val latitude = locationSnapshot.child("latitude").getValue(Double::class.java) ?: 0.0
+                    val longitude = locationSnapshot.child("longitude").getValue(Double::class.java) ?: 0.0
 
-                // Define the zoom range where the annotations should be visible
-                val shouldBeVisible = currentZoom in 14.0..18.0
+                    // Check if it's raining
+                    if (condition.contains("rain", ignoreCase = true) ||
+                        condition.contains("showers", ignoreCase = true)
+                    ) {
+                        val radiusInMeters = 200.0
+                        val dangerArea = CircleAnnotationOptions()
+                            .withPoint(Point.fromLngLat(longitude, latitude))
+                            .withCircleOpacity(0.5)
+                            .withCircleColor("#FF0000")
+                            .withCircleRadius(radiusInMeters)
 
-                // Update the opacity of annotations based on the zoom level
-                ChiralNetworkAnnotations.forEach { annotation ->
-                    annotation.circleOpacity = if (shouldBeVisible) 0.5 else 0.0
-                    ChiralNetworkManager.update(annotation)
-                }
-                areas.forEach { area ->
-                    val radiusInMeters = area.radius * 20
-                    val circle = ChiralNetworkAnnotations.find { it.point.latitude() == area.latitude && it.point.longitude() == area.longitude }
-                    if (circle != null) {
-                        val newRadius = radiusInMeters * 2.0.pow(currentZoom - 14.0)
-                        circle.circleRadius = newRadius
-                        ChiralNetworkManager.update(circle)
+                        // Add the circle annotation to the map
+                        val annotation = ChiralNetworkManager.create(dangerArea)
+                        ChiralNetworkAnnotations.add(annotation)
+
+                        Log.d("WeatherBasedDangerLayer",
+                            "Danger area added at $latitude, $longitude for condition: $condition")
+                    } else {
+                        Log.d("WeatherBasedDangerLayer",
+                            "No rain detected at ${locationSnapshot.key} with condition: $condition")
                     }
                 }
+            }
 
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("WeatherBasedDangerLayer", "Error fetching weather data: ${error.message}")
+            }
+        })
+
+        // Add zoom change listener
+        mapView.getMapboxMap().addOnCameraChangeListener {
+            val currentZoom = mapView.getMapboxMap().cameraState.zoom
+            val shouldBeVisible = currentZoom in 10.0..18.0
+
+            ChiralNetworkAnnotations.forEach { annotation ->
+                annotation.circleOpacity = if (shouldBeVisible) 0.5 else 0.0
+
+                // Calculate new radius based on zoom level
+                val baseRadius = 200.0 // Base radius in meters
+                val newRadius = baseRadius * 2.0.pow(currentZoom - 14.0)
+                annotation.circleRadius = newRadius
+
+                ChiralNetworkManager.update(annotation)
             }
         }
     }
 }
 
+
 fun addSignalsLayer(mapView: MapView) {
     val signalRepository = SignalRepository()
     signalRepository.fetchSignals { signals ->
-        mapView.getMapboxMap().getStyle { style ->
+        mapView.mapboxMap.getStyle { style ->
             val annotationApi = mapView.annotations
             signalManager = annotationApi.createPointAnnotationManager()
 
@@ -566,7 +615,7 @@ fun addSignalsLayer(mapView: MapView) {
             }
 
             // Listen for zoom level changes
-            mapView.getMapboxMap().addOnCameraChangeListener {
+            mapView.mapboxMap.addOnCameraChangeListener {
                 val currentZoom = mapView.getMapboxMap().cameraState.zoom
 
                 // Define the zoom range where the annotations should be visible
@@ -641,12 +690,12 @@ fun addTimefallLayer2(mapView: MapView) {
     val locationKeys = mutableListOf<String>()
     val weatherData = mutableListOf<WeatherInfo>()
 
-    // List of coordinates for each location
-    val locationCoordinates = listOf(
-        LocationPoint(38.8100, -9.2285), // North of Casal de Cambra (California)
-        LocationPoint(38.8009, -9.2150), // East of Casal de Cambra (Lisboa)
-        LocationPoint(38.7900, -9.2285), // South of Casal de Cambra (Tokyo)
-        LocationPoint(38.8009, -9.2420)  // West of Casal de Cambra (Cagliari)
+    // Map coordinates explicitly to locations
+    val coordinatesMap = mapOf(
+        "California" to LocationPoint(38.8100, -9.2285),
+        "Lisbon" to LocationPoint(38.8009, -9.2150),
+        "Tokyo" to LocationPoint(38.7900, -9.2285),
+        "Cagliari" to LocationPoint(38.8009, -9.2420)
     )
 
     val weatherInfoRepository = WeatherInfoRepository()
@@ -656,31 +705,21 @@ fun addTimefallLayer2(mapView: MapView) {
         val deferredLocationKeys = locations.map { location ->
             async {
                 val locationKey = weatherInfoRepository.fetchLocationKey(location)
-                if (locationKey != null) {
-                    locationKey
-                } else {
-                    Log.e("WeatherLayer", "Location key not found for: $location")
-                    null
-                }
+                locationKey?.also {
+                    locationKeys.add(it)
+                } ?: Log.e("WeatherLayer", "Location key not found for: $location")
             }
         }
 
         // Await the result of all async tasks and collect the location keys
-        deferredLocationKeys.awaitAll().forEach { locationKey ->
-            locationKey?.let { locationKeys.add(it) }
-        }
+        deferredLocationKeys.awaitAll()
 
         // Step 2: Fetch weather data concurrently for each location key
         val deferredWeatherData = locationKeys.map { locationKey ->
             async {
-                // Assuming you have a way to correlate location keys with coordinates, for example:
-                val coordinates = locationCoordinates.firstOrNull { location -> locationKey.contains(location.latitude.toString()) }
-                if (coordinates != null) {
-                    val weather = weatherInfoRepository.fetchWeatherData(locationKey, coordinates.latitude, coordinates.longitude)
-                    weather
-                } else {
-                    Log.e("WeatherLayer", "Coordinates not found for location key: $locationKey")
-                    null
+                val coordinates = coordinatesMap[locations.find { it.contains(locationKey) }]
+                coordinates?.let {
+                    weatherInfoRepository.fetchWeatherData(locationKey, it.latitude, it.longitude)
                 }
             }
         }
@@ -703,13 +742,16 @@ private fun addWeatherDataToMap(weatherData: List<WeatherInfo>, mapView: MapView
 
         // Loop through all weather data and add annotations
         weatherData.forEach { weatherInfo ->
-            // Use weatherInfo's latitude and longitude for positioning the point
             val point = Point.fromLngLat(weatherInfo.longitude, weatherInfo.latitude)
-
-            // Fetch the appropriate icon based on weather condition
             val iconResourceId = weatherInfo.iconResourceId
             val originalBitmap = BitmapFactory.decodeResource(mapView.context.resources, iconResourceId)
-            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, originalBitmap.width / 8, originalBitmap.height / 8, false)
+            val displayMetrics = mapView.context.resources.displayMetrics
+            val scaledBitmap = Bitmap.createScaledBitmap(
+                originalBitmap,
+                originalBitmap.width * displayMetrics.density.toInt(),
+                originalBitmap.height * displayMetrics.density.toInt(),
+                false
+            )
 
             // Create the PointAnnotationOptions
             val pointAnnotationOptions = PointAnnotationOptions()
@@ -728,6 +770,7 @@ private fun addWeatherDataToMap(weatherData: List<WeatherInfo>, mapView: MapView
         }
     }
 }
+
 
 fun toggleAnnotation(type: String, isVisible: Boolean) {
     when (type) {

@@ -74,24 +74,12 @@ fun SecondMainPage(navController: NavHostController, modifier: Modifier = Modifi
             Button(
                 onClick = {
                     // Navigate to cargo management screen
-                    navController.navigate(Screens.CargoManagement.route)
+                    navController.navigate(Screens.Deliverys.route)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.blue))
             ) {
                 Text(text = "Cargo Management", color = androidx.compose.ui.graphics.Color.White)
-            }
-
-            // Chiral Network Map Button
-            Button(
-                onClick = {
-                    // Navigate to chiral network map screen
-                    navController.navigate(Screens.ChiralNetworkMap.route)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.blue))
-            ) {
-                Text(text = "Chiral Network Map", color = androidx.compose.ui.graphics.Color.White)
             }
         }
 

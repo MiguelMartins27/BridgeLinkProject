@@ -2,7 +2,6 @@ package com.example.bridgelink.weatherinfo
 
 import android.util.Log
 import com.example.bridgelink.R
-import com.example.bridgelink.signals.Signal
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
@@ -13,7 +12,6 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
-import org.json.JSONObject
 
 class WeatherInfoRepository {
 
@@ -53,18 +51,23 @@ class WeatherInfoRepository {
             val responseBody = response.body?.string()
 
             if (response.isSuccessful && responseBody != null) {
-                val jsonArray = JSONArray(responseBody) // The response should be an array, not a JSONObject
-                val weather = jsonArray.getJSONObject(0) // Assuming the first item in the array contains weather data
+                val jsonArray = JSONArray(responseBody)
+                val weather = jsonArray.getJSONObject(0)
 
-                // Accessing temperature and condition from the response
                 val temperature = weather.getJSONObject("Temperature")
-                    .getJSONObject("Metric").getInt("Value") // Assuming the "Metric" contains the value
+                    .getJSONObject("Metric").getInt("Value")
 
-                val condition = weather.getString("WeatherText") // The weather description
+                val condition = weather.getString("WeatherText")
 
-                // Constructing a simple weather description
-                val description = "Temperature: $temperature°C, Condition: $condition"
-                WeatherInfo(temperature, condition, latitude, longitude, getDrawableForWeather(condition))
+                // Create WeatherInfo object
+                val weatherInfo = WeatherInfo(temperature, condition, latitude, longitude, getDrawableForWeather(condition))
+
+                // Save to Firebase on the IO dispatcher
+                //withContext(Dispatchers.Main) {
+                //    saveWeatherToFirebase(weatherInfo, locationKey)
+                //}
+//
+                weatherInfo
             } else {
                 null
             }
@@ -73,6 +76,7 @@ class WeatherInfoRepository {
             null
         }
     }
+
 
     private fun getLocationKey(jsonArray: JSONArray, location: String): String? {
         for (i in 0 until jsonArray.length()) {
@@ -94,11 +98,10 @@ class WeatherInfoRepository {
 
                 val value = metricSnapshot.child("Value").getValue(Int::class.java) ?: 0
                 val condition = snapshot.child("WeatherText").getValue(String::class.java) ?: ""
-
                 Log.d("WeatherInfoRepository", "Weather data: $value, $condition")
 
                 weatherList.add(WeatherInfo(value, condition, latitude, longitude, getDrawableForWeather(condition)))
-
+                saveWeatherToFirebase(WeatherInfo(value, condition, latitude, longitude, getDrawableForWeather(condition)), location)
                 onDataFetched(weatherList)
             }
 
@@ -107,6 +110,29 @@ class WeatherInfoRepository {
             }
         })
     }
+
+    private fun saveWeatherToFirebase(weatherInfo: WeatherInfo, location: String) {
+        val weatherRef = FirebaseDatabase.getInstance().reference
+            .child("weatherCurrentInApp")
+            .child(location)  // Add location as a child node
+
+        val weatherData = hashMapOf(
+            "temperature" to weatherInfo.temperature,
+            "condition" to weatherInfo.condition,
+            "latitude" to weatherInfo.latitude,
+            "longitude" to weatherInfo.longitude,
+            "iconResourceId" to weatherInfo.iconResourceId
+        )
+
+        weatherRef.setValue(weatherData)
+            .addOnSuccessListener {
+                Log.d("WeatherInfoRepository", "Weather data saved successfully")
+            }
+            .addOnFailureListener { e ->
+                Log.e("WeatherInfoRepository", "Error saving weather data", e)
+            }
+    }
+
 
 
     private fun getDrawableForWeather(weather: String): Int {

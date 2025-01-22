@@ -15,10 +15,13 @@ class DeliveryRepository {
     private val database: DatabaseReference = FirebaseDatabase.getInstance().reference.child("deliveries")
     private val storage: StorageReference = FirebaseStorage.getInstance().reference.child("delivery_images")
 
+    // Fetch deliveries as before
     fun fetchDeliveries(): Flow<List<Delivery>> = callbackFlow {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val deliveriesList = snapshot.children.mapNotNull { it.toDelivery() }
+                val deliveriesList = snapshot.children.mapNotNull {
+                    it.toDelivery()?.copy(key = it.key ?: "") // Ensure key is set from snapshot
+                }
                 trySend(deliveriesList)
             }
 
@@ -26,29 +29,45 @@ class DeliveryRepository {
                 close(error.toException())
             }
         }
-
         database.addValueEventListener(listener)
         awaitClose { database.removeEventListener(listener) }
     }
 
+
     suspend fun saveDelivery(delivery: Delivery): Boolean {
         return try {
             val key = database.push().key ?: throw Exception("Failed to generate push key")
-            database.child(key).setValue(delivery).await()
+            val deliveryWithKey = delivery.copy(key = key) // Create new delivery with key
+            database.child(key).setValue(deliveryWithKey).await()
             true
         } catch (e: Exception) {
             false
         }
     }
 
+
     private suspend fun uploadImage(imageUri: Uri): String {
         val ref = storage.child("${System.currentTimeMillis()}.jpg")
         return ref.putFile(imageUri).await().storage.downloadUrl.await().toString()
     }
 
+    suspend fun markDeliveryAsComplete(delivery: Delivery): Boolean {
+        return try {
+            if (delivery.key.isBlank()) {
+                throw Exception("Delivery key is missing")
+            }
+            database.child(delivery.key).child("delivered").setValue(true).await()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+
     private fun DataSnapshot.toDelivery(): Delivery? {
         return try {
             Delivery(
+                key = key ?: "", // Get key from snapshot
                 user = child("user").getValue(String::class.java) ?: "",
                 weight = child("weight").getValue(Int::class.java) ?: 0,
                 size = child("size").getValue(String::class.java) ?: "",
@@ -61,4 +80,5 @@ class DeliveryRepository {
             null
         }
     }
+
 }

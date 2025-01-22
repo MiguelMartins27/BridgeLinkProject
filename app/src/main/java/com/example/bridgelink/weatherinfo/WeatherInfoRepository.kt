@@ -2,7 +2,6 @@ package com.example.bridgelink.weatherinfo
 
 import android.util.Log
 import com.example.bridgelink.R
-import com.example.bridgelink.signals.Signal
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
@@ -13,7 +12,6 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
-import org.json.JSONObject
 
 class WeatherInfoRepository {
 
@@ -53,18 +51,23 @@ class WeatherInfoRepository {
             val responseBody = response.body?.string()
 
             if (response.isSuccessful && responseBody != null) {
-                val jsonArray = JSONArray(responseBody) // The response should be an array, not a JSONObject
-                val weather = jsonArray.getJSONObject(0) // Assuming the first item in the array contains weather data
+                val jsonArray = JSONArray(responseBody)
+                val weather = jsonArray.getJSONObject(0)
 
-                // Accessing temperature and condition from the response
                 val temperature = weather.getJSONObject("Temperature")
-                    .getJSONObject("Metric").getInt("Value") // Assuming the "Metric" contains the value
+                    .getJSONObject("Metric").getInt("Value")
 
-                val condition = weather.getString("WeatherText") // The weather description
+                val condition = weather.getString("WeatherText")
 
-                // Constructing a simple weather description
-                val description = "Temperature: $temperature°C, Condition: $condition"
-                WeatherInfo(temperature, condition, description, latitude, longitude, getDrawableForWeather(condition))
+                // Create WeatherInfo object
+                val weatherInfo = WeatherInfo(temperature, condition, latitude, longitude, getDrawableForWeather(condition))
+
+                // Save to Firebase on the IO dispatcher
+                //withContext(Dispatchers.Main) {
+                //    saveWeatherToFirebase(weatherInfo, locationKey)
+                //}
+//
+                weatherInfo
             } else {
                 null
             }
@@ -73,6 +76,7 @@ class WeatherInfoRepository {
             null
         }
     }
+
 
     private fun getLocationKey(jsonArray: JSONArray, location: String): String? {
         for (i in 0 until jsonArray.length()) {
@@ -86,18 +90,18 @@ class WeatherInfoRepository {
 
     fun fetchWeather(onDataFetched: (List<WeatherInfo>) -> Unit, location: String, latitude: Double, longitude: Double) {
         val weatherList = mutableListOf<WeatherInfo>()
-
+        Log.d("WeatherInfoRepository", "Fetching weather data for $location")
         database.child(location).addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 weatherList.clear()
-                val metricSnapshot = snapshot.child("temperature").child("metric")
+                val metricSnapshot = snapshot.child("Temperature").child("Metric")
 
-                val value = metricSnapshot.child("value").getValue(Int::class.java) ?: 0
-                val condition = snapshot.child("condition").getValue(String::class.java) ?: ""
-                val description = snapshot.child("description").getValue(String::class.java) ?: ""
+                val value = metricSnapshot.child("Value").getValue(Int::class.java) ?: 0
+                val condition = snapshot.child("WeatherText").getValue(String::class.java) ?: ""
+                Log.d("WeatherInfoRepository", "Weather data: $value, $condition")
 
-                weatherList.add(WeatherInfo(value, condition, description, latitude, longitude, getDrawableForWeather(condition)))
-
+                weatherList.add(WeatherInfo(value, condition, latitude, longitude, getDrawableForWeather(condition)))
+                saveWeatherToFirebase(WeatherInfo(value, condition, latitude, longitude, getDrawableForWeather(condition)), location)
                 onDataFetched(weatherList)
             }
 
@@ -107,42 +111,65 @@ class WeatherInfoRepository {
         })
     }
 
+    private fun saveWeatherToFirebase(weatherInfo: WeatherInfo, location: String) {
+        val weatherRef = FirebaseDatabase.getInstance().reference
+            .child("weatherCurrentInApp")
+            .child(location)  // Add location as a child node
+
+        val weatherData = hashMapOf(
+            "temperature" to weatherInfo.temperature,
+            "condition" to weatherInfo.condition,
+            "latitude" to weatherInfo.latitude,
+            "longitude" to weatherInfo.longitude,
+            "iconResourceId" to weatherInfo.iconResourceId
+        )
+
+        weatherRef.setValue(weatherData)
+            .addOnSuccessListener {
+                Log.d("WeatherInfoRepository", "Weather data saved successfully")
+            }
+            .addOnFailureListener { e ->
+                Log.e("WeatherInfoRepository", "Error saving weather data", e)
+            }
+    }
+
+
 
     private fun getDrawableForWeather(weather: String): Int {
         return when (weather) {
             "Sunny" -> R.drawable.w01
-            "Mostly Sunny" -> R.drawable.w02
-            "Partly Sunny" -> R.drawable.w03
-            "Intermittent Clouds" -> R.drawable.w04
-            "Hazy Sunshine" -> R.drawable.w05
-            "Mostly Cloudy" -> R.drawable.w06
+            "Mostly sunny" -> R.drawable.w02
+            "Partly sunny" -> R.drawable.w03
+            "Intermittent clouds" -> R.drawable.w04
+            "Hazy sunshine" -> R.drawable.w05
+            "Mostly cloudy" -> R.drawable.w06
             "Cloudy" -> R.drawable.w07
             "Dreary (Overcast)" -> R.drawable.w08
             "Fog" -> R.drawable.w11
             "Showers" -> R.drawable.w12
-            "Mostly Cloudy w/ Showers" -> R.drawable.w13
-            "Partly Sunny w/ Showers" -> R.drawable.w14
+            "Mostly cloudy w/ showers" -> R.drawable.w13
+            "Partly sunny w/ showers" -> R.drawable.w14
             "T-Storms" -> R.drawable.w15
-            "Mostly Cloudy w/ T-Storms" -> R.drawable.w16
-            "Partly Sunny w/ T-Storms" -> R.drawable.w17
+            "Mostly cloudy w/ T-Storms" -> R.drawable.w16
+            "Partly sunny w/ T-Storms" -> R.drawable.w17
             "Rain" -> R.drawable.w18
-            "Light Rain" -> R.drawable.w18
+            "Light rain" -> R.drawable.w18
             "Flurries" -> R.drawable.w19
-            "Mostly Cloudy w/ Flurries" -> R.drawable.w20
-            "Partly Sunny w/ Flurries" -> R.drawable.w21
+            "Mostly cloudy w/ flurries" -> R.drawable.w20
+            "Partly sunny w/ flurries" -> R.drawable.w21
             "Snow" -> R.drawable.w22
-            "Mostly Cloudy w/ Snow" -> R.drawable.w23
+            "Mostly cloudy w/ snow" -> R.drawable.w23
             "Ice" -> R.drawable.w24
             "Sleet" -> R.drawable.w25
-            "Freezing Rain" -> R.drawable.w26
-            "Rain and Snow" -> R.drawable.w29
+            "Freezing rain" -> R.drawable.w26
+            "Rain and snow" -> R.drawable.w29
             "Windy" -> R.drawable.w32
             "Clear" -> R.drawable.w33
-            "Mostly Clear" -> R.drawable.w34
-            "Partly Cloudy" -> R.drawable.w35
-            "Hazy Moonlight" -> R.drawable.w37
-            "Partly Cloudy w/ Showers" -> R.drawable.w39
-            "Partly Cloudy w/ T-Storms" -> R.drawable.w41
+            "Mostly clear" -> R.drawable.w34
+            "Partly cloudy" -> R.drawable.w35
+            "Hazy moonlight" -> R.drawable.w37
+            "Partly cloudy w/ showers" -> R.drawable.w39
+            "Partly cloudy w/ T-Storms" -> R.drawable.w41
             else -> R.drawable.unknown
         }
     }

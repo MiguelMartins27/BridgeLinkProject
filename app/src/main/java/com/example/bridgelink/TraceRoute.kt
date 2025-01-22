@@ -9,6 +9,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
+import com.example.bridgelink.navigation.Screens
+import com.example.bridgelink.utils.RouteViewModel
 import com.google.android.gms.maps.model.LatLng
 import com.mapbox.geojson.Feature
 import com.mapbox.geojson.FeatureCollection
@@ -33,7 +35,7 @@ import com.mapbox.maps.MapboxMap
 
 
 @Composable
-fun TraceRoute(navController: NavController) {
+fun TraceRoute(navController: NavController, routeViewModel: RouteViewModel) {
     val mapViewportState = rememberMapViewportState { MapViewportState() }
     val points = remember { mutableStateListOf<LatLng>() }
 
@@ -59,7 +61,7 @@ fun TraceRoute(navController: NavController) {
                 val latLng = LatLng(point.latitude(), point.longitude())
                 points.add(latLng)
                 mapView.getMapboxMap().getStyle()?.let { style ->
-                addMarkerToStyle(style, latLng)
+                    addMarkerToStyle(style, latLng)
                     if (points.size > 1) {
                         drawLineBetweenPoints(style, points)
                     }
@@ -70,12 +72,14 @@ fun TraceRoute(navController: NavController) {
     }
 
     Button(onClick = {
-        navController.popBackStack()
-        // Handle passing the points back
+        // Add the current route to the ViewModel
+        routeViewModel.addRoute(points)
+        navController.navigate(Screens.MainPage.route)
     }) {
         Text("Finish Route")
     }
 }
+
 
 fun drawLineBetweenPoints(style: Style, points: List<LatLng>) {
     val lineString = LineString.fromLngLats(points.map { Point.fromLngLat(it.longitude, it.latitude) })
@@ -85,7 +89,7 @@ fun drawLineBetweenPoints(style: Style, points: List<LatLng>) {
                 geometry(lineString)
             })
             style.addLayer(lineLayer("line-layer", "line-source") {
-                lineColor("#0000FF") // Use a valid hex color format
+                lineColor("#0000FF") // RED
                 lineWidth(5.0)
             })
         } else {

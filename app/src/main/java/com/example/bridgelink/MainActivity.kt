@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.example.bridgelink.navigation.NavGraph
 import com.example.bridgelink.ui.theme.BridgeLinkTheme
+import com.example.bridgelink.utils.RouteViewModel
 import com.example.bridgelink.utils.SharedViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.mapbox.android.core.permissions.PermissionsManager
@@ -105,12 +106,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             BridgeLinkTheme {
                 val navController = rememberNavController()
+                val routeViewModel: RouteViewModel = viewModels<RouteViewModel>().value
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     NavGraph(
                         navController = navController,
                         modifier = Modifier.padding(innerPadding),
                         sharedViewModel = viewModel,
-                        signOut = { signOutUser() }
+                        routeViewModel = routeViewModel,
+                        signOut = { signOutUser()
+                        }
                     )
                 }
             }

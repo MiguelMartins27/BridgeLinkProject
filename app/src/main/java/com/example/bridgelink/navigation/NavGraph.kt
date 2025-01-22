@@ -31,13 +31,14 @@ import com.example.bridgelink.R
 import com.example.bridgelink.SecondMainPage
 import com.example.bridgelink.TraceRoute
 import com.example.bridgelink.utils.SharedViewModel
+import com.example.bridgelink.utils.RouteViewModel
 
 
 @Composable
-fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier, sharedViewModel: SharedViewModel, signOut: () -> Unit) {
+fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier, sharedViewModel: SharedViewModel, signOut: () -> Unit, routeViewModel: RouteViewModel) {
     NavHost(
         navController = navController,
-        startDestination = Screens.TraceRoute.route,
+        startDestination = Screens.MainPage.route,
         modifier = modifier
     ) {
         composable (route = Screens.CargoManagement.route) {
@@ -56,51 +57,14 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier, sh
             NewDeliveryScreen(navController = navController)
         }
         composable (route = Screens.MainPage.route) {
-            MainPage(navController = navController, sharedViewModel = sharedViewModel)
+            MainPage(navController = navController, sharedViewModel = sharedViewModel, routeViewModel = routeViewModel)
         }
         composable (route = Screens.SecondMainPage.route) {
             SecondMainPage(navController = navController)
         }
         composable (route = Screens.TraceRoute.route){
-            TraceRoute(navController = navController)
+            TraceRoute(navController = navController, routeViewModel = routeViewModel)
         }
     }
 }
-
-@Composable
-fun NavigationDots(
-    currentPage: Int,
-    modifier: Modifier = Modifier // Add a modifier parameter with a default value
-) {
-    Column(
-        modifier = modifier // Apply the passed modifier
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(colorResource(id = R.color.navy_blue))
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.Bottom
-        ) {
-            repeat(8) { index ->
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 6.dp)
-                        .size(
-                            if (currentPage == index) 50.dp
-                            else 40.dp
-                        )
-                        .clip(CircleShape)
-                        .background(
-                            if (currentPage == index) Color(0xFFFF5722)
-                            else Color.Gray
-                        )
-                        .align(Alignment.CenterVertically)
-                )
-            }
-        }
-    }
-}
-
 

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAlert
 import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.Bloodtype
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -55,16 +57,22 @@ import com.example.bridgelink.navigation.Screens
 import com.example.bridgelink.post.office.PostOfficeRepository
 import com.example.bridgelink.signals.Signal
 import com.example.bridgelink.signals.SignalRepository
+import com.example.bridgelink.utils.RouteViewModel
 import com.example.bridgelink.utils.SharedViewModel
 import com.example.bridgelink.weatherinfo.WeatherInfo
 import com.example.bridgelink.weatherinfo.WeatherInfoRepository
 import com.google.gson.JsonObject
+import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.maps.MapView
 import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
 import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
 import com.mapbox.maps.extension.compose.style.MapStyle
+import com.mapbox.maps.extension.style.layers.addLayer
+import com.mapbox.maps.extension.style.layers.generated.lineLayer
+import com.mapbox.maps.extension.style.sources.addSource
+import com.mapbox.maps.extension.style.sources.generated.geoJsonSource
 import com.mapbox.maps.plugin.PuckBearing
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.CircleAnnotation
@@ -88,24 +96,28 @@ import kotlin.math.pow
 @Composable
 fun MainPage(
     navController: NavController,
-    sharedViewModel: SharedViewModel
+    sharedViewModel: SharedViewModel,
+    routeViewModel: RouteViewModel
 ) {
     val locationState = sharedViewModel.location.collectAsState()
     val (latitude, longitude) = locationState.value
     val mapViewportState = rememberMapViewportState()
+    val routes = routeViewModel.routes.value
+    var mapView by remember { mutableStateOf<MapView?>(null) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(colorResource(id = R.color.navy_blue))
     ) {
-        // Map rendering
         MapboxMap(
             Modifier.fillMaxSize(),
             mapViewportState = mapViewportState,
             style = { MapStyle(style = "mapbox://styles/miguelmartins27/cm4k61vj1007501si3wux1brp") }
         ) {
-            MapEffect(Unit) { mapView ->
-                mapView.location.updateSettings {
+            MapEffect(Unit) { map ->
+                mapView = map
+                map.location.updateSettings {
                     locationPuck = createDefault2DPuck(withBearing = true)
                     enabled = true
                     puckBearing = PuckBearing.COURSE
@@ -114,14 +126,72 @@ fun MainPage(
 
                 mapViewportState.transitionToFollowPuckState()
 
-                // Load and manage layers
-                addPostOfficesLayer(mapView)
-                addTimefallLayer(mapView)
-                addSignalsLayer(mapView)
-                addChiralNetworkLayer(mapView)
+                addPostOfficesLayer(map)
+                addTimefallLayer(map)
+                addSignalsLayer(map)
+                addChiralNetworkLayer(map)
+
+                routes.forEachIndexed { index, route ->
+                    val lineString = LineString.fromLngLats(route.map { Point.fromLngLat(it.longitude, it.latitude) })
+                    map.getMapboxMap().getStyle { style ->
+                        if (!style.styleSourceExists("route-source-$index")) {
+                            style.addSource(geoJsonSource("route-source-$index") {
+                                geometry(lineString)
+                            })
+                            style.addLayer(lineLayer("route-layer-$index", "route-source-$index") {
+                                lineColor("#0000FF")
+                                lineWidth(5.0)
+                            })
+                        }
+                    }
+                }
             }
         }
 
+        // Routes List
+        LazyColumn(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+                .width(150.dp)
+                .background(Color(0x88000000), RoundedCornerShape(8.dp))
+        ) {
+            items(routes.size) { index ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Route ${index + 1}",
+                        color = Color.White,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = {
+                            mapView?.let { map ->
+                                map.getMapboxMap().getStyle { style ->
+                                    style.removeStyleLayer("route-layer-$index")
+                                    style.removeStyleSource("route-source-$index")
+                                }
+                                routeViewModel.deleteRoute(index)
+                            }
+                        },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Delete Route",
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
+        }
+
+        // Bottom Navigation Buttons
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -140,12 +210,10 @@ fun MainPage(
                 .align(Alignment.BottomStart)
                 .padding(start = 20.dp, bottom = 26.dp)
                 .size(56.dp)
-                .clickable {
-                    navController.navigate(Screens.NewDeliveryScreen.route)
-                }
+                .clickable { navController.navigate(Screens.NewDeliveryScreen.route) }
         ) {
             Icon(
-                imageVector = Icons.Default.Add, // Using the Material Icons for the plus sign
+                imageVector = Icons.Default.Add,
                 contentDescription = "Add",
                 tint = Color.White,
                 modifier = Modifier
@@ -157,7 +225,7 @@ fun MainPage(
         InteractionUtils(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .offset(y = (56).dp), // Adjusted offset
+                .offset(y = 56.dp),
             latitude = latitude,
             longitude = longitude
         )
@@ -165,7 +233,7 @@ fun MainPage(
         InteractionUtilsLayerControl(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .offset(y = (-28).dp),
+                .offset(y = (-28).dp)
         )
     }
 }
@@ -174,7 +242,6 @@ fun MainPage(
 fun InteractionUtilsLayerControl(
     modifier: Modifier = Modifier,
 ) {
-    var isTimefallLayerEnabled by remember { mutableStateOf(true) }
     var isChiralNetworkLayerEnabled by remember { mutableStateOf(true) }
     var isSignalsLayerEnabled by remember { mutableStateOf(true) }
 
@@ -194,17 +261,6 @@ fun InteractionUtilsLayerControl(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Timefall Layer
-        IconToggleButton(
-            iconResId = R.drawable.umbrella,
-            contentDescription = "Toggle Timefall Layer",
-            onClick = {
-                isTimefallLayerEnabled = !isTimefallLayerEnabled
-                toggleAnnotation("Timefall", isTimefallLayerEnabled)
-            }
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-
         // Chiral Network Layer
         IconToggleButton(
             iconResId = R.drawable.signals,
@@ -267,54 +323,50 @@ fun InteractionUtils(modifier: Modifier = Modifier, latitude: Double, longitude:
             }
         }
 
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 4.dp), // Reduced padding
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            IconButton(
-                onClick = {  }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AddAlert,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier
-                        .size(36.dp) // Reduced icon size
-                        .padding(end = 4.dp)
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 4.dp), // Reduced padding
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            IconButton(
-                onClick = { }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Bloodtype,
-                    contentDescription = null,
-                    tint = Color.Red,
-                    modifier = Modifier
-                        .size(36.dp) // Reduced icon size
-                        .padding(end = 4.dp)
-                )
-            }
-        }
+        //Row(
+        //    modifier = Modifier
+        //        .padding(horizontal = 4.dp), // Reduced padding
+        //    verticalAlignment = Alignment.CenterVertically,
+        //    horizontalArrangement = Arrangement.Center
+        //) {
+        //    IconButton(
+        //        onClick = {  }
+        //    ) {
+        //        Icon(
+        //            imageVector = Icons.Default.AddAlert,
+        //            contentDescription = null,
+        //            tint = Color.White,
+        //            modifier = Modifier
+        //                .size(36.dp) // Reduced icon size
+        //                .padding(end = 4.dp)
+        //        )
+        //    }
+        //}
+//
+        //Row(
+        //    modifier = Modifier
+        //        .weight(1f)
+        //        .padding(horizontal = 4.dp), // Reduced padding
+        //    verticalAlignment = Alignment.CenterVertically,
+        //    horizontalArrangement = Arrangement.Center
+        //) {
+        //    IconButton(
+        //        onClick = { }
+        //    ) {
+        //        Icon(
+        //            imageVector = Icons.Default.Bloodtype,
+        //            contentDescription = null,
+        //            tint = Color.Red,
+        //            modifier = Modifier
+        //                .size(36.dp) // Reduced icon size
+        //                .padding(end = 4.dp)
+        //        )
+        //    }
+        //}
     }
     if (showAddSignalDialog) {
         AddSignalDialog(
             onDismiss = { showAddSignalDialog = false },
-            onAddSignal = { iconId, description ->
-                // Handle adding the signal here
-                showAddSignalDialog = false
-            },
             latitude = latitude,
             longitude = longitude
         )
@@ -326,7 +378,6 @@ fun AddSignalDialog(
     onDismiss: () -> Unit,
     latitude: Double,
     longitude: Double,
-    onAddSignal: (String, String) -> Unit
 ) {
     var selectedIcon by remember { mutableStateOf<Int?>(null) }
     var description by remember { mutableStateOf("") }
@@ -408,7 +459,7 @@ private val timefallAnnotations = mutableListOf<PointAnnotation>()
 fun addPostOfficesLayer(mapView: MapView) {
     val postOfficeRepository = PostOfficeRepository()
     postOfficeRepository.fetchPostOffices { postOffices ->
-        mapView.getMapboxMap().getStyle { style ->
+        mapView.getMapboxMap().getStyle {
             val annotationApi = mapView.annotations
             postOfficeManager = annotationApi.createPointAnnotationManager()
 
@@ -430,7 +481,7 @@ fun addPostOfficesLayer(mapView: MapView) {
                 val currentZoom = mapView.getMapboxMap().cameraState.zoom
 
                 // Define the zoom range where the annotations should be visible
-                val shouldBeVisible = currentZoom >= 14.0 && currentZoom <= 18.0
+                val shouldBeVisible = currentZoom in 14.0..18.0
 
                 // Update the opacity of annotations based on the zoom level
                 postOfficeAnnotations.forEach { annotation ->
@@ -445,7 +496,7 @@ fun addPostOfficesLayer(mapView: MapView) {
 fun addChiralNetworkLayer(mapView: MapView) {
     val repository = DangerAreaRepository()
     repository.fetchDangerAreas { areas ->
-        mapView.getMapboxMap().getStyle { style ->
+        mapView.getMapboxMap().getStyle {
             val annotationApi = mapView.annotations
             ChiralNetworkManager = annotationApi.createCircleAnnotationManager()
 
@@ -466,7 +517,7 @@ fun addChiralNetworkLayer(mapView: MapView) {
                 val currentZoom = mapView.getMapboxMap().cameraState.zoom
 
                 // Define the zoom range where the annotations should be visible
-                val shouldBeVisible = currentZoom >= 14.0 && currentZoom <= 18.0
+                val shouldBeVisible = currentZoom in 14.0..18.0
 
                 // Update the opacity of annotations based on the zoom level
                 ChiralNetworkAnnotations.forEach { annotation ->
@@ -519,7 +570,7 @@ fun addSignalsLayer(mapView: MapView) {
                 val currentZoom = mapView.getMapboxMap().cameraState.zoom
 
                 // Define the zoom range where the annotations should be visible
-                val shouldBeVisible = currentZoom >= 14.0 && currentZoom <= 18.0
+                val shouldBeVisible = currentZoom in 14.0..18.0
 
                 // Update the opacity of annotations based on the zoom level
                 signalAnnotations.forEach { annotation ->
@@ -533,7 +584,7 @@ fun addSignalsLayer(mapView: MapView) {
 
 fun addTimefallLayer(mapView: MapView) {
     // List of location names
-    val locations = listOf("California", "Lisboa", "Tokyo", "Cagliari")
+    val locations = listOf("California", "Lisbon", "Tokyo", "Cagliari")
 
     // List of coordinates for each location
     val locationCoordinates = listOf(
@@ -558,8 +609,9 @@ fun addTimefallLayer(mapView: MapView) {
 
                         weatherList.forEach { weather ->
                             val iconResourceId = weather.iconResourceId
+                            Log.d("WeatherLayer", "Adding weather icon for $location: $iconResourceId")
                             val originalBitmap = BitmapFactory.decodeResource(mapView.context.resources, iconResourceId)
-                            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, originalBitmap.width / 8, originalBitmap.height / 8, false)
+                            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, originalBitmap.width, originalBitmap.height, false)
                             val point = Point.fromLngLat(coordinates.longitude, coordinates.latitude)
                             val pointAnnotationOptions = PointAnnotationOptions()
                                 .withPoint(point) // Use coordinates
@@ -567,7 +619,6 @@ fun addTimefallLayer(mapView: MapView) {
                                 .withData(JsonObject().apply {
                                     addProperty("temperature", weather.temperature)
                                     addProperty("condition", weather.condition)
-                                    addProperty("description", weather.description)
                                     addProperty("latitude", weather.latitude)
                                     addProperty("longitude", weather.longitude)
                                 })
@@ -582,25 +633,11 @@ fun addTimefallLayer(mapView: MapView) {
 
         // Wait for all async operations to complete
         deferredResults.awaitAll()
-
-        // Listen for zoom level changes
-        mapView.getMapboxMap().addOnCameraChangeListener {
-            val currentZoom = mapView.getMapboxMap().cameraState.zoom
-
-            // Define the zoom range where the annotations should be visible
-            val shouldBeVisible = currentZoom >= 14.0 && currentZoom <= 18.0
-
-            // Update the opacity of annotations based on the zoom level
-            signalAnnotations.forEach { annotation ->
-                annotation.iconOpacity = if (shouldBeVisible) 1.0 else 0.0
-                signalManager.update(annotation)
-            }
-        }
     }
 }
 
 fun addTimefallLayer2(mapView: MapView) {
-    val locations = listOf("California", "Lisboa", "Tokyo", "Cagliari")
+    val locations = listOf("California", "Lisbon", "Tokyo", "Cagliari")
     val locationKeys = mutableListOf<String>()
     val weatherData = mutableListOf<WeatherInfo>()
 
@@ -660,7 +697,7 @@ fun addTimefallLayer2(mapView: MapView) {
 
 // Step 3: Add weather data to map
 private fun addWeatherDataToMap(weatherData: List<WeatherInfo>, mapView: MapView) {
-    mapView.getMapboxMap().getStyle { style ->
+    mapView.getMapboxMap().getStyle {
         val annotationApi = mapView.annotations
         timefallManager = annotationApi.createPointAnnotationManager()  // Use PointAnnotationManager for icons
 
@@ -679,7 +716,6 @@ private fun addWeatherDataToMap(weatherData: List<WeatherInfo>, mapView: MapView
                 .withPoint(point) // Set the point for the annotation
                 .withIconImage(scaledBitmap) // Set the icon image (scaled bitmap)
                 .withData(JsonObject().apply {
-                    addProperty("description", weatherInfo.description ?: "No description")
                     addProperty("temperature", weatherInfo.temperature)
                     addProperty("condition", weatherInfo.condition)
                     addProperty("latitude", weatherInfo.latitude)
@@ -692,8 +728,6 @@ private fun addWeatherDataToMap(weatherData: List<WeatherInfo>, mapView: MapView
         }
     }
 }
-
-
 
 fun toggleAnnotation(type: String, isVisible: Boolean) {
     when (type) {

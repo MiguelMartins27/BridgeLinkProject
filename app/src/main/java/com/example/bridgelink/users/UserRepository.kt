@@ -55,6 +55,7 @@ class UserRepository {
             "bloodType" to user.bloodType,
             "height" to user.height,
             "weight" to user.weight,
+            "dob" to user.dob,
             "deliveries" to user.deliveries,
             "distanceWalked" to user.distanceWalked,
             "timefallExposure" to user.timefallExposure

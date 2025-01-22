@@ -1,6 +1,5 @@
 package com.example.bridgelink
 
-import android.app.DatePickerDialog
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
@@ -14,6 +13,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -32,8 +32,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bridgelink.users.User
@@ -58,7 +61,7 @@ class ProfileSetupActivity : ComponentActivity() {
         var height by remember { mutableStateOf("") }
         var weight by remember { mutableStateOf("") }
         var dob by remember { mutableStateOf("") }
-        val photoUrl by remember { mutableStateOf("") }
+        var photoUrl by remember { mutableStateOf("") }
         var selectedPhotoResourceId by remember { mutableStateOf<Int?>(null) }
 
         val context = LocalContext.current  // Get context for Toast
@@ -109,8 +112,10 @@ class ProfileSetupActivity : ComponentActivity() {
 
             // Blood Type input field
             Dropdown(
-                list = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"),
-            )
+                list = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
+            ) { selectedBloodType ->
+                bloodType = selectedBloodType
+            }
 
             // Height input field (only numbers allowed)
             TextField(
@@ -146,39 +151,83 @@ class ProfileSetupActivity : ComponentActivity() {
                     .background(inputFieldColor)
             )
 
-            // Date of Birth input field
-            TextField(
-                value = dob,
-                onValueChange = { dob = it },
-                label = { Text("Date of Birth") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp)
-                    .background(inputFieldColor)
-            )
+            DateInputField { selectedDob ->
+                dob = selectedDob
+            }
 
             // Profile Photo URL field (Optional, Horizontal Scroll for Image selection)
             ProfilePhotoSelectionField(
                 selectedPhoto = selectedPhotoResourceId
             ) { selectedResourceId ->
                 selectedPhotoResourceId = selectedResourceId
+                photoUrl = selectedResourceId.toString() // Generate a URL or identifier for the photo.
             }
 
             // Save button with contrast
             Button(
-                onClick = { saveUserProfile(name, bloodType, height, weight, dob, photoUrl) },
+                onClick = {
+                    saveUserProfile(name, bloodType, height, weight, dob, photoUrl)
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
                 modifier = Modifier.padding(top = 16.dp)
             ) {
-                Text("Save Profile", color = Color.White) // White text for better contrast on button
+                Text("Save Profile", color = Color.White)
+            }
+
+        }
+    }
+
+    @Composable
+    fun DateInputField(onDateChange: (String) -> Unit) {
+        var textFieldValue by remember { mutableStateOf(TextFieldValue()) }
+
+        TextField(
+            value = textFieldValue,
+            onValueChange = { newValue ->
+                val digitsOnly = newValue.text.filter { it.isDigit() }
+                if (digitsOnly.length <= 8) {
+                    val formattedText = formatDateInput(digitsOnly)
+                    val newCursorPosition = calculateCursorPosition(digitsOnly.length)
+                    textFieldValue = TextFieldValue(
+                        text = formattedText,
+                        selection = TextRange(newCursorPosition)
+                    )
+                    onDateChange(formattedText)
+                }
+            },
+            label = { Text("Date of Birth (DD/MM/YYYY)") },
+            keyboardOptions = KeyboardOptions.Default.copy(
+                keyboardType = KeyboardType.Number
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+                .background(Color(0xFFF2F2F2))
+        )
+    }
+
+
+    private fun formatDateInput(input: String): String {
+        return buildString {
+            input.forEachIndexed { index, char ->
+                if (index == 2 || index == 4) append("/")
+                append(char)
             }
         }
     }
 
+    private fun calculateCursorPosition(digitsCount: Int): Int {
+        return when {
+            digitsCount > 4 -> digitsCount + 2
+            digitsCount > 2 -> digitsCount + 1
+            else -> digitsCount
+        }
+    }
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun Dropdown(
         list: List<String>,
+        onSelectionChanged: (String) -> Unit
     ) {
         var selectedText by remember { mutableStateOf(list[0]) }
         var isExpanded by remember { mutableStateOf(false) }
@@ -207,6 +256,7 @@ class ProfileSetupActivity : ComponentActivity() {
                         onClick = {
                             selectedText = text
                             isExpanded = false
+                            onSelectionChanged(text)
                         },
                         contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
                     )
@@ -214,6 +264,7 @@ class ProfileSetupActivity : ComponentActivity() {
             }
         }
     }
+
 
     @Composable
     fun ProfilePhotoSelectionField(

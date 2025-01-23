@@ -114,7 +114,8 @@ class ProfileSetupActivity : ComponentActivity() {
 
             // Blood Type input field
             Dropdown(
-                list = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
+                list = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"),
+                label = "Blood Type",
             ) { selectedBloodType ->
                 bloodType = selectedBloodType
             }
@@ -244,39 +245,47 @@ class ProfileSetupActivity : ComponentActivity() {
     @Composable
     fun Dropdown(
         list: List<String>,
+        label: String = "Select Option",
         onSelectionChanged: (String) -> Unit
     ) {
-        var selectedText by remember { mutableStateOf(list[0]) }
+        var selectedText by remember { mutableStateOf("") }
         var isExpanded by remember { mutableStateOf(false) }
 
-        ExposedDropdownMenuBox(
-            expanded = isExpanded,
-            onExpandedChange = { isExpanded = !isExpanded },
-        ) {
-            TextField(
-                value = selectedText,
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = isExpanded)
-                },
-                modifier = Modifier.menuAnchor()
-            )
-
-            ExposedDropdownMenu(
+        Column {
+            ExposedDropdownMenuBox(
                 expanded = isExpanded,
-                onDismissRequest = { isExpanded = false }
+                onExpandedChange = { isExpanded = !isExpanded },
+                modifier = Modifier.fillMaxWidth()
             ) {
-                list.forEach { text ->
-                    DropdownMenuItem(
-                        text = { Text(text = text) },
-                        onClick = {
-                            selectedText = text
-                            isExpanded = false
-                            onSelectionChanged(text)
-                        },
-                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
-                    )
+                TextField(
+                    value = selectedText,
+                    onValueChange = {},
+                    label = { Text(text = label) },
+                    readOnly = true,
+                    singleLine = true,
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = isExpanded)
+                    },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth()
+                )
+
+                ExposedDropdownMenu(
+                    expanded = isExpanded,
+                    onDismissRequest = { isExpanded = false }
+                ) {
+                    list.forEach { item ->
+                        DropdownMenuItem(
+                            text = { Text(text = item) },
+                            onClick = {
+                                selectedText = item
+                                isExpanded = false
+                                onSelectionChanged(item)
+                            },
+                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                        )
+                    }
                 }
             }
         }

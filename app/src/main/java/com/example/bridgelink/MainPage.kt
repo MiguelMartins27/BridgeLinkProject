@@ -29,8 +29,10 @@ import androidx.compose.material.icons.filled.AddAlert
 import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.Bloodtype
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -70,16 +72,20 @@ import com.google.firebase.database.ValueEventListener
 import com.google.gson.JsonObject
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
+import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
 import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
 import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
 import com.mapbox.maps.extension.compose.style.MapStyle
 import com.mapbox.maps.extension.style.layers.addLayer
+import com.mapbox.maps.extension.style.layers.addLayerBelow
 import com.mapbox.maps.extension.style.layers.generated.lineLayer
 import com.mapbox.maps.extension.style.sources.addSource
 import com.mapbox.maps.extension.style.sources.generated.geoJsonSource
 import com.mapbox.maps.plugin.PuckBearing
+import com.mapbox.maps.plugin.animation.MapAnimationOptions
+import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.CircleAnnotation
 import com.mapbox.maps.plugin.annotation.generated.CircleAnnotationManager
@@ -99,7 +105,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.pow
 
-
 @Composable
 fun MainPage(
     navController: NavController,
@@ -114,21 +119,19 @@ fun MainPage(
 
     // Coroutine job to periodically refresh weather data
     val fetchJob = rememberUpdatedState {
-        // Create a coroutine that fetches the weather data every minute
         CoroutineScope(Dispatchers.Main).launch {
             while (true) {
                 mapView?.let { map ->
-                    // Fetch and update weather data every minute
                     addTimefallLayer(map)
                 }
-                delay(60000) // Wait for 1 minute (60000ms)
+                delay(60000)
             }
         }
     }
 
     // Initial weather fetch when the page loads
     LaunchedEffect(mapView) {
-        fetchJob.value.invoke() // Start periodic fetching when the page is first launched
+        fetchJob.value.invoke()
     }
 
     Box(
@@ -149,24 +152,26 @@ fun MainPage(
                     puckBearing = PuckBearing.COURSE
                     puckBearingEnabled = true
                 }
-
                 mapViewportState.transitionToFollowPuckState()
 
-                addPostOfficesLayer(map)
-                addSignalsLayer(map)
-                addWeatherBasedDangerLayer(map)
+                map.getMapboxMap().getStyle { style ->
+                    addPostOfficesLayer(map)
+                    addSignalsLayer(map)
+                    addWeatherBasedDangerLayer(map)
 
-                routes.forEachIndexed { index, route ->
-                    val lineString = LineString.fromLngLats(route.map { Point.fromLngLat(it.longitude, it.latitude) })
-                    map.getMapboxMap().getStyle { style ->
+                    routes.forEachIndexed { index, route ->
+                        val lineString = LineString.fromLngLats(route.map { Point.fromLngLat(it.longitude, it.latitude) })
                         if (!style.styleSourceExists("route-source-$index")) {
                             style.addSource(geoJsonSource("route-source-$index") {
                                 geometry(lineString)
                             })
-                            style.addLayer(lineLayer("route-layer-$index", "route-source-$index") {
-                                lineColor("#0000FF")
-                                lineWidth(5.0)
-                            })
+                            style.addLayerBelow(
+                                lineLayer("route-layer-$index", "route-source-$index") {
+                                    lineColor("#0000FF")
+                                    lineWidth(5.0)
+                                },
+                                "location-indicator-layer"
+                            )
                         }
                     }
                 }
@@ -247,13 +252,16 @@ fun MainPage(
             )
         }
 
-        InteractionUtils(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(y = 56.dp),
-            latitude = latitude,
-            longitude = longitude
-        )
+        mapView?.let {
+            InteractionUtils(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(y = 56.dp),
+                latitude = latitude,
+                longitude = longitude,
+                mapView = it
+            )
+        }
 
         InteractionUtilsLayerControl(
             modifier = Modifier
@@ -262,6 +270,7 @@ fun MainPage(
         )
     }
 }
+
 
 
 @Composable
@@ -311,7 +320,7 @@ fun InteractionUtilsLayerControl(
 }
 
 @Composable
-fun InteractionUtils(modifier: Modifier = Modifier, latitude: Double, longitude: Double) {
+fun InteractionUtils(modifier: Modifier = Modifier, latitude: Double, longitude: Double, mapView: MapView) {
     var showAddSignalDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -347,6 +356,39 @@ fun InteractionUtils(modifier: Modifier = Modifier, latitude: Double, longitude:
                         .padding(end = 4.dp)
                 )
             }
+        }
+
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 4.dp), // Reduced padding
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ){
+            IconButton(
+                    onClick = {
+                        mapView?.let { map ->
+                            map.camera.easeTo(
+                                CameraOptions.Builder()
+                                    .center(Point.fromLngLat(longitude, latitude)) // Set camera to user's location
+                                    .zoom(15.0) // Adjust zoom level as needed
+                                    .build(),
+                                MapAnimationOptions.mapAnimationOptions {
+                                    duration(1000) // Smooth animation duration in milliseconds
+                                }
+                            )
+                        }
+                    }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MyLocation, // Use a location icon
+                    contentDescription = "Center Map",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(36.dp) // Reduced icon size
+                        .padding(end = 4.dp)
+            )
+        }
         }
 
         //Row(
@@ -543,7 +585,7 @@ fun addWeatherBasedDangerLayer(mapView: MapView) {
                     if (condition.contains("rain", ignoreCase = true) ||
                         condition.contains("showers", ignoreCase = true)
                     ) {
-                        val radiusInMeters = 200.0
+                        val radiusInMeters = 100.0
                         val dangerArea = CircleAnnotationOptions()
                             .withPoint(Point.fromLngLat(longitude, latitude))
                             .withCircleOpacity(0.5)
@@ -577,7 +619,7 @@ fun addWeatherBasedDangerLayer(mapView: MapView) {
                 annotation.circleOpacity = if (shouldBeVisible) 0.5 else 0.0
 
                 // Calculate new radius based on zoom level
-                val baseRadius = 200.0 // Base radius in meters
+                val baseRadius = 100.0 // Base radius in meters
                 val newRadius = baseRadius * 2.0.pow(currentZoom - 14.0)
                 annotation.circleRadius = newRadius
 
@@ -636,12 +678,20 @@ fun addTimefallLayer(mapView: MapView) {
     val locations = listOf("California", "Lisbon", "Tokyo", "Cagliari")
 
     // List of coordinates for each location
-    val locationCoordinates = listOf(
+    val locationCoordinates1 = listOf(
         LocationPoint(38.8100, -9.2285), // North of Casal de Cambra (California)
         LocationPoint(38.8009, -9.2150), // East of Casal de Cambra (Lisboa)
         LocationPoint(38.7900, -9.2285), // South of Casal de Cambra (Tokyo)
         LocationPoint(38.8009, -9.2420)  // West of Casal de Cambra (Cagliari)
     )
+
+    val locationCoordinates = listOf(
+        LocationPoint(38.7589, -9.1569), // North of FCUL
+        LocationPoint(38.7550, -9.1515), // East of FCUL
+        LocationPoint(38.7500, -9.1570), // South of FCUL
+        LocationPoint(38.7550, -9.1625)  // West of FCUL
+    )
+
 
     val weatherInfoRepository = WeatherInfoRepository()
 
@@ -691,12 +741,20 @@ fun addTimefallLayer2(mapView: MapView) {
     val weatherData = mutableListOf<WeatherInfo>()
 
     // Map coordinates explicitly to locations
-    val coordinatesMap = mapOf(
+    val coordinatesMap1 = mapOf(
         "California" to LocationPoint(38.8100, -9.2285),
         "Lisbon" to LocationPoint(38.8009, -9.2150),
         "Tokyo" to LocationPoint(38.7900, -9.2285),
         "Cagliari" to LocationPoint(38.8009, -9.2420)
     )
+
+    val coordinatesMap = mapOf(
+        "North of FCUL" to LocationPoint(38.7589, -9.1569), // North
+        "East of FCUL" to LocationPoint(38.7550, -9.1515),  // East
+        "South of FCUL" to LocationPoint(38.7500, -9.1570), // South
+        "West of FCUL" to LocationPoint(38.7550, -9.1625)   // West
+    )
+
 
     val weatherInfoRepository = WeatherInfoRepository()
 

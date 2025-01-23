@@ -51,25 +51,15 @@ class MainActivity : ComponentActivity() {
     private val velocityThreshold = 5.0 // meters per second (adjust as needed)
     private val dangerAreas = mutableListOf<Point>()
 
-    // Define the PermissionsListener for Mapbox location permissions
-    private val permissionsListener: PermissionsListener = object : PermissionsListener {
-        override fun onExplanationNeeded(permissionsToExplain: List<String>) {
-            Toast.makeText(
-                applicationContext,
-                "Location permission is required for the map functionality",
-                Toast.LENGTH_LONG
-            ).show()
-        }
-
-        override fun onPermissionResult(granted: Boolean) {
-            if (granted) {
-                Toast.makeText(applicationContext, "Location permission granted", Toast.LENGTH_SHORT).show()
+    private val requestLocationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+            if (isGranted) {
+                Toast.makeText(this, "Location permission granted", Toast.LENGTH_SHORT).show()
                 enableLocationComponent()
             } else {
-                Toast.makeText(applicationContext, "Location permission denied", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show()
             }
         }
-    }
 
     private val requestCameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
@@ -91,39 +81,29 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // Check if camera permission is granted
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            // Camera permission is granted, you can use the camera
-            Toast.makeText(this, "Camera permission already granted", Toast.LENGTH_SHORT).show()
-        } else {
-            // Camera permission is not granted, request it
-            requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-        }
-
-        // Initialize MapView
+        // Initialize MapView properly
         mapView = MapView(this)
-        setContentView(mapView)  // Add map view to layout
+        setContentView(mapView)
 
-        // Load the map style
         mapView.getMapboxMap().loadStyleUri("mapbox://styles/miguelmartins27/cm4k61vj1007501si3wux1brp") {
             enableLocationComponent()
         }
 
-        // Initialize the permissions manager
-        permissionsManager = PermissionsManager(permissionsListener)
-
-        // Check for location permissions and request if necessary
-        if (PermissionsManager.areLocationPermissionsGranted(this)) {
+        // Request location permissions
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
             enableLocationComponent()
         } else {
-            permissionsManager.requestLocationPermissions(this)
+            requestLocationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
 
-        // Set up content using Jetpack Compose
+        // Request camera permission
+        requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+
+        // Set up the Compose UI
         setContent {
             BridgeLinkTheme {
                 val navController = rememberNavController()
@@ -140,9 +120,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Fetch danger areas from Firebase or predefined data
+        // Fetch danger areas
         addWeatherBasedDangerLayer()
     }
+
+
 
     private fun enableLocationComponent() {
         val locationComponentPlugin: LocationComponentPlugin = mapView.location

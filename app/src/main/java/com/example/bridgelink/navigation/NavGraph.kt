@@ -9,7 +9,6 @@ import androidx.navigation.compose.composable
 import com.example.bridgelink.DeliveriesScreen
 import com.example.bridgelink.MainPage
 import com.example.bridgelink.NewDeliveryScreen
-import com.example.bridgelink.OdradekScanner
 import com.example.bridgelink.Profile
 import com.example.bridgelink.SecondMainPage
 import com.example.bridgelink.TraceRoute
@@ -26,9 +25,6 @@ fun NavGraph(navController: NavHostController, modifier: Modifier = Modifier, sh
     ) {
         composable (route = Screens.Deliverys.route) {
             DeliveriesScreen(navController = navController)
-        }
-        composable (route = Screens.OdradekScanner.route) {
-            OdradekScanner(navController = navController)
         }
         composable (route = Screens.Profile.route) {
             Profile(navController = navController, signOut = signOut)

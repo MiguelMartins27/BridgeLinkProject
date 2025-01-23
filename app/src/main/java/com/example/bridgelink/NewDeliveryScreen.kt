@@ -87,7 +87,6 @@ fun NewDeliveryScreen(navController: NavHostController) {
         }
     }
 
-
     LaunchedEffect(Unit) {
         // Replace this with your actual method of getting the current user
         currentUser = getCurrentUser()
@@ -107,25 +106,37 @@ fun NewDeliveryScreen(navController: NavHostController) {
             modifier = Modifier.padding(vertical = 24.dp)
         )
 
+        // Weight input field
         TextField(
             value = weight,
-            onValueChange = { weight = it },
-            label = { Text("Weight (kg)") },
-            modifier = Modifier.fillMaxWidth()
+            onValueChange = {
+                if (it.all { char -> char.isDigit() }) {
+                    weight = it
+                } else {
+                    Toast.makeText(context, "Please enter a valid weight", Toast.LENGTH_SHORT).show()
+                }
+            },
+            label = { Text("Weight (kg)", color = Color.Black) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
         )
 
+        // Package size dropdown
         Dropdown(
             list = listOf("S", "M", "L"),
             label = "Package Size",
             onSelectionChanged = { selectedSize = it }
         )
 
+        // Package condition dropdown
         Dropdown(
             list = listOf("Poor", "Medium", "Good", "Perfect"),
             label = "Package Condition",
             onSelectionChanged = { selectedCondition = it }
         )
 
+        // Fragile checkbox
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -134,7 +145,7 @@ fun NewDeliveryScreen(navController: NavHostController) {
             Text("Fragile", color = Color.White, modifier = Modifier.padding(start = 8.dp))
         }
 
-
+        // Display captured image if available
         if (capturedImageUri.path?.isNotEmpty() == true) {
             AsyncImage(
                 model = capturedImageUri,
@@ -147,7 +158,7 @@ fun NewDeliveryScreen(navController: NavHostController) {
             )
         }
 
-
+        // Image selection buttons (Take Photo or Choose Photo)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -172,7 +183,6 @@ fun NewDeliveryScreen(navController: NavHostController) {
                 Text("Take Photo")
             }
 
-
             Button(
                 onClick = { selectImageLauncher.launch("image/*") },
                 modifier = Modifier.weight(1f),
@@ -182,25 +192,31 @@ fun NewDeliveryScreen(navController: NavHostController) {
             }
         }
 
+        // Submit button
         Button(
             onClick = {
-                val delivery = Delivery(
-                    user = currentUser,
-                    weight = weight.toIntOrNull() ?: 0,
-                    size = selectedSize,
-                    fragile = fragile,
-                    condition = selectedCondition,
-                    imageUri = downloadUrl,
-                    delivered = false
-                )
-                CoroutineScope(Dispatchers.Main).launch {
-                    val repository = DeliveryRepository()
-                    val success = repository.saveDelivery(delivery)
-                    if (success) {
-                        showToast(context, "Delivery saved successfully")
-                        navController.navigate(Screens.TraceRoute.route)
-                    } else {
-                        showToast(context, "Failed to save delivery")
+                // Check if all fields are filled
+                if (weight.isBlank() || selectedSize.isBlank() || selectedCondition.isBlank() || downloadUrl.isBlank()) {
+                    showToast(context, "Please fill out all the fields")
+                } else {
+                    val delivery = Delivery(
+                        user = currentUser,
+                        weight = weight.toIntOrNull() ?: 0,
+                        size = selectedSize,
+                        fragile = fragile,
+                        condition = selectedCondition,
+                        imageUri = downloadUrl,
+                        delivered = false
+                    )
+                    CoroutineScope(Dispatchers.Main).launch {
+                        val repository = DeliveryRepository()
+                        val success = repository.saveDelivery(delivery)
+                        if (success) {
+                            showToast(context, "Delivery saved successfully")
+                            navController.navigate(Screens.TraceRoute.route)
+                        } else {
+                            showToast(context, "Failed to save delivery")
+                        }
                     }
                 }
             },
@@ -210,10 +226,9 @@ fun NewDeliveryScreen(navController: NavHostController) {
             Text("Add package")
         }
 
-
-
         Spacer(modifier = Modifier.weight(1f))
 
+        // Close button
         IconButton(
             onClick = { navController.navigate(Screens.MainPage.route) },
             modifier = Modifier.size(64.dp),
@@ -227,6 +242,7 @@ fun NewDeliveryScreen(navController: NavHostController) {
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

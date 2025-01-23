@@ -64,6 +64,8 @@ class ProfileSetupActivity : ComponentActivity() {
         var photoUrl by remember { mutableStateOf("") }
         var selectedPhotoResourceId by remember { mutableStateOf<Int?>(null) }
 
+        var errorMessage by remember { mutableStateOf("") } // State for error messages
+
         val context = LocalContext.current  // Get context for Toast
 
         // Color values from your resources
@@ -163,19 +165,34 @@ class ProfileSetupActivity : ComponentActivity() {
                 photoUrl = selectedResourceId.toString() // Generate a URL or identifier for the photo.
             }
 
+            // Show error message if any required field is empty
+            if (errorMessage.isNotBlank()) {
+                Text(
+                    text = errorMessage,
+                    color = Color.Red,
+                    style = TextStyle(fontSize = 16.sp),
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+            }
+
             // Save button with contrast
             Button(
                 onClick = {
-                    saveUserProfile(name, bloodType, height, weight, dob, photoUrl)
+                    // Validate that all fields are filled before saving
+                    if (name.isBlank() || bloodType.isBlank() || height.isBlank() || weight.isBlank() || dob.isBlank() || photoUrl.isBlank()) {
+                        errorMessage = "Please fill out all fields"
+                    } else {
+                        saveUserProfile(name, bloodType, height, weight, dob, photoUrl)
+                    }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
                 modifier = Modifier.padding(top = 16.dp)
             ) {
                 Text("Save Profile", color = Color.White)
             }
-
         }
     }
+
 
     @Composable
     fun DateInputField(onDateChange: (String) -> Unit) {
@@ -309,6 +326,13 @@ class ProfileSetupActivity : ComponentActivity() {
         dob: String,
         photoUrl: String
     ) {
+        // Validate if all required fields are filled
+        if (name.isBlank() || bloodType.isBlank() || height.isBlank() || weight.isBlank() || dob.isBlank() || photoUrl.isBlank()) {
+            Toast.makeText(this, "Please fill out all fields", Toast.LENGTH_SHORT).show()
+            return // Return early if validation fails
+        }
+
+        // Continue with saving the profile if validation passes
         val user = FirebaseAuth.getInstance().currentUser
         val userId = user?.uid
 
@@ -318,7 +342,7 @@ class ProfileSetupActivity : ComponentActivity() {
                 bloodType,
                 height,
                 weight,
-                0, // Replace with actual values for user's blood pressure, cholesterol, etc.
+                0,
                 0,
                 0,
                 dob,

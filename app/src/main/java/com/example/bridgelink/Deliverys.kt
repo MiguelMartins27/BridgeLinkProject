@@ -13,9 +13,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
@@ -28,16 +30,23 @@ import coil.compose.rememberImagePainter
 import com.example.bridgelink.deliveries.DeliveryRepository
 import com.example.bridgelink.deliviries.Delivery
 import androidx.compose.runtime.*
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.colorResource
 import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
 import com.example.bridgelink.navigation.Screens
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeliveriesScreen(navController: NavController) {
+    // Get the current user's ID
+    val currentUser = getCurrentUser()
+
+    // Fetch deliveries only for the current user
     val deliveryRepository = remember { DeliveryRepository() }
-    val deliveriesFlow = deliveryRepository.fetchDeliveries()
+    val deliveriesFlow = deliveryRepository.fetchDeliveriesForUser(currentUser) // Fetch only current user's deliveries
     val deliveries by deliveriesFlow.collectAsState(initial = emptyList())
 
     // Coroutine scope for launching the suspend function
@@ -54,6 +63,9 @@ fun DeliveriesScreen(navController: NavController) {
                         Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
+                colors = TopAppBarDefaults.smallTopAppBarColors(
+                    containerColor = colorResource(R.color.navy_blue) // Set the custom background color
+                )
             )
         }
     ) { padding ->
@@ -113,6 +125,12 @@ fun DeliveriesScreen(navController: NavController) {
     }
 }
 
+// Function to get the current user's ID from Firebase Auth
+private fun getCurrentUser(): String {
+    val firebaseAuth = FirebaseAuth.getInstance()
+    return firebaseAuth.currentUser?.uid ?: ""
+}
+
 @Composable
 fun DeliveryCard(delivery: Delivery, onComplete: () -> Unit) {
     Card(
@@ -120,12 +138,18 @@ fun DeliveryCard(delivery: Delivery, onComplete: () -> Unit) {
             .fillMaxWidth()
             .padding(8.dp)
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(colorResource(id = R.color.home_grey))
+                .clip(MaterialTheme.shapes.medium)
+        ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
             // Display delivery image
             Image(
-                painter = rememberImagePainter(delivery.imageUri),
+                painter = rememberAsyncImagePainter(delivery.imageUri),
                 contentDescription = "Delivery Image",
                 modifier = Modifier
                     .fillMaxWidth()
@@ -156,6 +180,6 @@ fun DeliveryCard(delivery: Delivery, onComplete: () -> Unit) {
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
-        }
+        }}
     }
 }

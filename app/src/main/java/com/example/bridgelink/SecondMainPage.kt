@@ -1,6 +1,5 @@
 package com.example.bridgelink
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -58,18 +57,6 @@ fun SecondMainPage(navController: NavHostController, modifier: Modifier = Modifi
                 Text(text = "Profile", color = androidx.compose.ui.graphics.Color.White)
             }
 
-            // Odradek Scanner Button
-            Button(
-                onClick = {
-                    // Navigate to odradek scanner screen
-                    navController.navigate(Screens.OdradekScanner.route)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.blue))
-            ) {
-                Text(text = "Odradek Scanner", color = androidx.compose.ui.graphics.Color.White)
-            }
-
             // Cargo Management Button
             Button(
                 onClick = {
@@ -79,7 +66,19 @@ fun SecondMainPage(navController: NavHostController, modifier: Modifier = Modifi
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.blue))
             ) {
-                Text(text = "Cargo Management", color = androidx.compose.ui.graphics.Color.White)
+                Text(text = "Deliviries", color = androidx.compose.ui.graphics.Color.White)
+            }
+
+            // Make new delivery Button
+            Button(
+                onClick = {
+                    // Navigate to cargo management screen
+                    navController.navigate(Screens.NewDeliveryScreen.route)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.blue))
+            ) {
+                Text(text = "Make new delivery", color = androidx.compose.ui.graphics.Color.White)
             }
         }
 

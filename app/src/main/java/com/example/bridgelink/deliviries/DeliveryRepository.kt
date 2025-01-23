@@ -2,12 +2,14 @@ package com.example.bridgelink.deliveries
 
 import android.net.Uri
 import com.example.bridgelink.deliviries.Delivery
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
 
 class DeliveryRepository {
@@ -53,13 +55,42 @@ class DeliveryRepository {
 
     suspend fun markDeliveryAsComplete(delivery: Delivery): Boolean {
         return try {
+            // Check if the delivery has a valid key
             if (delivery.key.isBlank()) {
                 throw Exception("Delivery key is missing")
             }
+
+            // Set the "delivered" field to true in the delivery record
             database.child(delivery.key).child("delivered").setValue(true).await()
+
+            // Get the current user's ID
+            val userId = FirebaseAuth.getInstance().currentUser?.uid
+            if (userId != null) {
+                // Increment the 'deliveries' count in the user's record
+                val userRef = FirebaseDatabase.getInstance().reference.child("users").child(userId)
+                userRef.child("deliveries").run {
+                    // Increment the 'deliveries' field by 1
+                    setValue(ServerValue.increment(1))
+                }.await()
+            }
+
             true
         } catch (e: Exception) {
+            // Handle the exception, could log it or show a toast to the user
             false
+        }
+    }
+
+
+    fun fetchDeliveriesForUser(userId: String): Flow<List<Delivery>> {
+        return flow {
+            val database = FirebaseDatabase.getInstance()
+            val deliveriesRef = database.getReference("deliveries")
+
+            // Query deliveries where the user ID matches the current user's ID
+            val snapshot = deliveriesRef.orderByChild("user").equalTo(userId).get().await()
+            val deliveries = snapshot.children.mapNotNull { it.getValue(Delivery::class.java) }
+            emit(deliveries)
         }
     }
 

@@ -13,11 +13,13 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 
 import androidx.navigation.compose.rememberNavController
 import com.example.bridgelink.navigation.NavGraph
@@ -69,6 +71,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val requestCameraPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+            if (isGranted) {
+                Toast.makeText(this, "Camera permission granted", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Camera permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -78,6 +89,19 @@ class MainActivity : ComponentActivity() {
             startActivity(Intent(this, SignInActivity::class.java))
             finish()
             return
+        }
+
+        // Check if camera permission is granted
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            // Camera permission is granted, you can use the camera
+            Toast.makeText(this, "Camera permission already granted", Toast.LENGTH_SHORT).show()
+        } else {
+            // Camera permission is not granted, request it
+            requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
 
         // Initialize MapView
@@ -215,4 +239,5 @@ class MainActivity : ComponentActivity() {
         startActivity(intent)
         finish()
     }
+
 }
